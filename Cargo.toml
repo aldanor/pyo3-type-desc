@@ -1,6 +1,14 @@
 [package]
 name = "pyo3-type-desc"
 version = "0.1.0"
-edition = "2021"
+authors = ["Ivan Smirnov <rust@ivan.smirnov.ie>"]
+edition = "2018"
+rust-version = "1.48"
 
 [dependencies]
+pyo3 = "^0.15.1"
+num-complex = { version = "0.4", optional = true }
+
+[features]
+default = []
+complex = ["num-complex"]
