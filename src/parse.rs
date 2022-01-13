@@ -2,9 +2,9 @@ use std::mem;
 use std::ops::{Deref, Not};
 use std::os::raw::{c_int, c_long, c_longlong, c_short, c_uint, c_ulong, c_ulonglong, c_ushort};
 
-use crate::buffer::{BufferScalar, ComplexSize, FloatSize, IntegerSize};
 use crate::common::{Endian, Signedness};
 use crate::desc::{FieldDescriptor, ScalarDescriptor, TypeDescriptor};
+use crate::scalar::{ComplexSize, FloatSize, IntegerSize, Scalar};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ByteStream<'a>(&'a [u8]);
@@ -160,7 +160,7 @@ impl Modifier {
 
 fn integer_type<T: Default + Not<Output = T> + PartialOrd>(
     modifier: Modifier, standard_size: IntegerSize,
-) -> BufferScalar {
+) -> Scalar {
     let size = if modifier.is_standard_size() {
         standard_size
     } else {
@@ -173,21 +173,19 @@ fn integer_type<T: Default + Not<Output = T> + PartialOrd>(
     };
     let signedness = Signedness::of::<T>();
     let endian = modifier.endian();
-    BufferScalar::Integer(size, signedness, endian)
+    Scalar::Integer(size, signedness, endian)
 }
 
-fn parse_buffer_type(
-    s: &mut ByteStream, modifier: Modifier, itemsize: usize,
-) -> Option<BufferScalar> {
-    type B = BufferScalar;
+fn parse_scalar_type(s: &mut ByteStream, modifier: Modifier, itemsize: usize) -> Option<Scalar> {
+    type S = Scalar;
     let endian = modifier.endian();
 
     Some(match s.consume_first()? {
-        b's' => B::Bytes(itemsize),
-        b'w' => B::Ucs4(itemsize),
-        b'?' => B::Bool,
-        b'b' => B::Char(Signedness::Signed),
-        b'B' => B::Char(Signedness::Unsigned),
+        b's' => S::Bytes(itemsize),
+        b'w' => S::Ucs4(itemsize),
+        b'?' => S::Bool,
+        b'b' => S::Char(Signedness::Signed),
+        b'B' => S::Char(Signedness::Unsigned),
         b'h' => integer_type::<c_short>(modifier, IntegerSize::Two),
         b'H' => integer_type::<c_ushort>(modifier, IntegerSize::Two),
         b'i' => integer_type::<c_int>(modifier, IntegerSize::Four),
@@ -196,15 +194,15 @@ fn parse_buffer_type(
         b'L' => integer_type::<c_ulong>(modifier, IntegerSize::Four),
         b'q' => integer_type::<c_longlong>(modifier, IntegerSize::Eight),
         b'Q' => integer_type::<c_ulonglong>(modifier, IntegerSize::Eight),
-        b'e' => B::Float(FloatSize::Two, endian),
-        b'f' => B::Float(FloatSize::Four, endian),
-        b'd' => B::Float(FloatSize::Eight, endian),
+        b'e' => S::Float(FloatSize::Two, endian),
+        b'f' => S::Float(FloatSize::Four, endian),
+        b'd' => S::Float(FloatSize::Eight, endian),
         b'Z' => match s.consume_first()? {
-            b'f' => B::Complex(ComplexSize::Four, endian),
-            b'd' => B::Complex(ComplexSize::Eight, endian),
+            b'f' => S::Complex(ComplexSize::Four, endian),
+            b'd' => S::Complex(ComplexSize::Eight, endian),
             _ => return None,
         },
-        b'c' => B::Bytes(1),
+        b'c' => S::Bytes(1),
         _ => return None,
     })
 }
@@ -252,7 +250,7 @@ fn add_trailing_padding<T: ScalarDescriptor>(
 /// and bug fixes (most notably, regarding trailing padding for struct
 /// types, but also being more restrictive in general and disallowing broken
 /// format strings like those with unmatched braces).
-pub fn parse_type_descriptor(s: impl AsRef<[u8]>) -> Option<TypeDescriptor<BufferScalar>> {
+pub fn parse_type_descriptor(s: impl AsRef<[u8]>) -> Option<TypeDescriptor<Scalar>> {
     let mut stream = ByteStream::new(s.as_ref());
     let (desc, _align) = parse_type_descriptor_impl(&mut stream, false)?;
     if stream.is_empty() {
@@ -264,7 +262,7 @@ pub fn parse_type_descriptor(s: impl AsRef<[u8]>) -> Option<TypeDescriptor<Buffe
 
 fn parse_type_descriptor_impl(
     stream: &mut ByteStream, is_subdtype: bool,
-) -> Option<(TypeDescriptor<BufferScalar>, usize)> {
+) -> Option<(TypeDescriptor<Scalar>, usize)> {
     /*
     Differences from numpy.core.internal._dtype_from_pep3118:
     - Always match T{} braces (numpy allows 'T{f' and 'f}' as valid format strings)
@@ -275,7 +273,7 @@ fn parse_type_descriptor_impl(
 
     let mut common_alignment = 1;
     let mut offset = 0;
-    let mut out_fields = Vec::<FieldDescriptor<BufferScalar>>::new();
+    let mut out_fields = Vec::<FieldDescriptor<Scalar>>::new();
     let mut out_itemsize = 0;
 
     while !stream.is_empty() {
@@ -328,7 +326,7 @@ fn parse_type_descriptor_impl(
         // parse the actual type (or padding)
         let ((mut desc, align), is_padding) = if stream.consume_if_equals(b'x') {
             // padding
-            ((TypeDescriptor::scalar(BufferScalar::Bool), 1), true)
+            ((TypeDescriptor::scalar(Scalar::Bool), 1), true)
         } else if stream.consume_if_equals(b'T') {
             // structured type
             if !stream.consume_if_equals(b'{') {
@@ -337,7 +335,7 @@ fn parse_type_descriptor_impl(
             (parse_type_descriptor_impl(stream, true)?, false)
         } else {
             // simple type
-            let ty = parse_buffer_type(stream, modifier, itemsize)?;
+            let ty = parse_scalar_type(stream, modifier, itemsize)?;
             if ty.is_array_like() {
                 itemsize = 1;
             }

@@ -57,7 +57,7 @@ impl_fmt_size!(ComplexSize);
 // - long double (g) - see e.g. https://github.com/rust-lang/rust-bindgen/issues/1549
 // - long complex (Zg) - same as above, doesn't make sense without compiler support
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum BufferScalar {
+pub enum Scalar {
     /// Boolean type
     ///
     /// | code     | type     |
@@ -122,14 +122,14 @@ pub enum BufferScalar {
     Ucs4(usize), // TODO: NonZeroUsize? numpy translates 0w -> |U0 -> 1w (!)
 }
 
-impl BufferScalar {
+impl Scalar {
     /// Returns true if the type is a byte array or a UCS-4 string.
     pub fn is_array_like(&self) -> bool {
         matches!(self, Self::Bytes(_) | Self::Ucs4(_))
     }
 }
 
-impl ScalarDescriptor for BufferScalar {
+impl ScalarDescriptor for Scalar {
     fn itemsize(&self) -> usize {
         match *self {
             Self::Bool | Self::Char(_) => 1,
@@ -151,7 +151,7 @@ impl ScalarDescriptor for BufferScalar {
     }
 }
 
-impl Debug for BufferScalar {
+impl Debug for Scalar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let int_char = |s: Signedness| if s.is_signed() { 'i' } else { 'u' };
         let endian_char = |e: Endian| if e == Endian::Little { '<' } else { '>' };
