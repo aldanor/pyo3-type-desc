@@ -1,10 +1,14 @@
+use std::fmt::{self, Debug};
+
 use pyo3_type_desc::{Scalar as BaseScalar, ScalarDescriptor};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+use crate::datetime::DatetimeUnit;
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Scalar {
     Base(BaseScalar),
-    Datetime,
-    Timedelta,
+    Datetime(DatetimeUnit),
+    Timedelta(DatetimeUnit),
 }
 
 impl From<BaseScalar> for Scalar {
@@ -25,6 +29,16 @@ impl ScalarDescriptor for Scalar {
         match *self {
             Self::Base(desc) => desc.alignment(),
             _ => 8,
+        }
+    }
+}
+
+impl Debug for Scalar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Base(scalar) => write!(f, "{:?}", scalar),
+            Self::Datetime(units) => write!(f, "datetime64[{}]", units),
+            Self::Timedelta(units) => write!(f, "timedelta64[{}]", units),
         }
     }
 }
