@@ -4,18 +4,23 @@ use crate::scalar::{FloatSize, IntegerSize, Scalar};
 
 #[cfg(feature = "complex")]
 use crate::scalar::ComplexSize;
+use crate::ScalarDescriptor;
 
-pub unsafe trait Element: Copy {
-    const TYPE: TypeDescriptor<Scalar>;
+pub unsafe trait Element<S: ScalarDescriptor>: Clone + Send {
+    fn type_descriptor() -> TypeDescriptor<S>;
 }
 
 type _S = Scalar;
-type _TD = TypeDescriptor<_S>;
 
 macro_rules! impl_element {
     ($ty:ty, $expr:expr) => {
-        unsafe impl Element for $ty {
-            const TYPE: _TD = _TD::Scalar($expr);
+        unsafe impl<S: ScalarDescriptor + From<Scalar>> Element<S> for $ty {
+            #[inline]
+            fn type_descriptor() -> TypeDescriptor<S> {
+                const TYPE: Scalar = $expr;
+                debug_assert_eq!(std::mem::size_of::<$ty>(), TYPE.itemsize());
+                TypeDescriptor::Scalar(S::from(TYPE))
+            }
         }
     };
     ($ty:ty => $variant:ident) => {
