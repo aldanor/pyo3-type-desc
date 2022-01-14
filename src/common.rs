@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Display};
+use std::hash::{Hash, Hasher};
 use std::ops::{Deref, Not};
 
 #[derive(Clone)]
@@ -71,6 +72,12 @@ impl<'a, T: Display> Display for BoxCow<'a, T> {
             Self::Borrowed(borrowed) => write!(f, "{}", borrowed),
             Self::Owned(owned) => write!(f, "{}", owned),
         }
+    }
+}
+
+impl<'a, T: Hash> Hash for BoxCow<'a, T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash(&**self, state)
     }
 }
 

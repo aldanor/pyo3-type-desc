@@ -9,7 +9,7 @@ pub trait ScalarDescriptor: 'static + Clone {
     fn alignment(&self) -> usize;
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct FieldDescriptor<T: ScalarDescriptor> {
     pub desc: TypeDescriptor<T>,
     pub name: Option<Cow<'static, [u8]>>, // TODO: &str for convenience, or should it be &[u8]?
@@ -43,7 +43,7 @@ impl<T: ScalarDescriptor + Debug> Debug for FieldDescriptor<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct RecordDescriptor<T: ScalarDescriptor> {
     pub fields: Cow<'static, [FieldDescriptor<T>]>,
     pub itemsize: usize, // TODO: NonZeroUsize? do we allow zero-size struct types?
@@ -83,7 +83,7 @@ impl<T: ScalarDescriptor + Debug> Debug for RecordDescriptor<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ArrayDescriptor<T: ScalarDescriptor> {
     pub desc: BoxCow<'static, TypeDescriptor<T>>,
     pub shape: Cow<'static, [usize]>, // TODO: NonZeroUsize? do we allow zero-sized subarrays?
@@ -125,7 +125,7 @@ impl<T: ScalarDescriptor + Debug> Debug for ArrayDescriptor<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum TypeDescriptor<T: ScalarDescriptor> {
     Object,
     Scalar(T),
