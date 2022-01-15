@@ -1,84 +1,33 @@
 use std::fmt::{self, Display};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+use numpy::npyffi::NPY_DATETIMEUNIT;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[repr(u32)]
 pub enum DatetimeUnit {
-    Date(DateUnit),
-    Time(TimeUnit),
+    Year = 0,
+    Month = 1,
+    Week = 2,
+    Day = 4,
+    Hour = 5,
+    Minute = 6,
+    Second = 7,
+    Millisecond = 8,
+    Microsecond = 9,
+    Nanosecond = 10,
+    Picosecond = 11,
+    Femtosecond = 12,
+    Attosecond = 13,
+    // TODO: technically, there's also 'generic' unit (14) which can be only used for timedeltas
 }
 
 impl DatetimeUnit {
-    pub fn to_code(self) -> &'static str {
-        match self {
-            Self::Date(date) => date.to_code(),
-            Self::Time(time) => time.to_code(),
-        }
-    }
-
-    pub fn from_code(code: impl AsRef<[u8]>) -> Option<Self> {
-        let code = code.as_ref();
-        DateUnit::from_code(code)
-            .map(Self::Date)
-            .or_else(|| TimeUnit::from_code(code).map(Self::Time))
-    }
-}
-
-impl Display for DatetimeUnit {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.to_code())
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum DateUnit {
-    Year,
-    Month,
-    Week,
-    Day,
-}
-
-impl DateUnit {
     pub fn to_code(self) -> &'static str {
         match self {
             Self::Year => "Y",
             Self::Month => "M",
             Self::Week => "W",
             Self::Day => "D",
-        }
-    }
-
-    pub fn from_code(code: impl AsRef<[u8]>) -> Option<Self> {
-        Some(match code.as_ref() {
-            b"Y" => Self::Year,
-            b"M" => Self::Month,
-            b"W" => Self::Week,
-            b"D" => Self::Day,
-            _ => return None,
-        })
-    }
-}
-
-impl Display for DateUnit {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.to_code())
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum TimeUnit {
-    Hour,
-    Minute,
-    Second,
-    Millisecond,
-    Microsecond,
-    Nanosecond,
-    Picosecond,
-    Femtosecond,
-    Attosecond,
-}
-
-impl TimeUnit {
-    pub fn to_code(self) -> &'static str {
-        match self {
             Self::Hour => "h",
             Self::Minute => "m",
             Self::Second => "s",
@@ -93,6 +42,10 @@ impl TimeUnit {
 
     pub fn from_code(code: impl AsRef<[u8]>) -> Option<Self> {
         Some(match code.as_ref() {
+            b"Y" => Self::Year,
+            b"M" => Self::Month,
+            b"W" => Self::Week,
+            b"D" => Self::Day,
             b"h" => Self::Hour,
             b"m" => Self::Minute,
             b"s" => Self::Second,
@@ -105,9 +58,28 @@ impl TimeUnit {
             _ => return None,
         })
     }
+
+    pub fn to_npy_datetimeunit(self) -> NPY_DATETIMEUNIT {
+        type N = NPY_DATETIMEUNIT;
+        match self {
+            Self::Year => N::NPY_FR_Y,
+            Self::Month => N::NPY_FR_M,
+            Self::Week => N::NPY_FR_W,
+            Self::Day => N::NPY_FR_D,
+            Self::Hour => N::NPY_FR_h,
+            Self::Minute => N::NPY_FR_m,
+            Self::Second => N::NPY_FR_s,
+            Self::Millisecond => N::NPY_FR_ms,
+            Self::Microsecond => N::NPY_FR_us,
+            Self::Nanosecond => N::NPY_FR_ns,
+            Self::Picosecond => N::NPY_FR_ps,
+            Self::Femtosecond => N::NPY_FR_fs,
+            Self::Attosecond => N::NPY_FR_as,
+        }
+    }
 }
 
-impl Display for TimeUnit {
+impl Display for DatetimeUnit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(self.to_code())
     }
