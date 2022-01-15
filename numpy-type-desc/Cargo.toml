@@ -7,7 +7,7 @@ rust-version = "1.48"
 
 [dependencies]
 pyo3 = "^0.15.1"
-numpy = "^0.15.1"
+numpy = { git = "https://github.com/aldanor/rust-numpy.git", branch = "feature/slim-element" }
 pyo3-type-desc = { path = "..", features = ["complex"] }
 num-complex = "0.4"
 num-traits = "0.2"
