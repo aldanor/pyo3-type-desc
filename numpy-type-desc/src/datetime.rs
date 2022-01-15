@@ -59,7 +59,7 @@ impl DatetimeUnit {
         })
     }
 
-    pub fn to_npy_datetimeunit(self) -> NPY_DATETIMEUNIT {
+    pub fn into_npy_datetimeunit(self) -> NPY_DATETIMEUNIT {
         type N = NPY_DATETIMEUNIT;
         match self {
             Self::Year => N::NPY_FR_Y,
