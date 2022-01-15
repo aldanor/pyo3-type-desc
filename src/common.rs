@@ -92,6 +92,14 @@ impl Endian {
     pub const NATIVE: Self = Self::Little;
     #[cfg(target_endian = "big")]
     pub const NATIVE: Self = Self::Big;
+
+    pub fn is_native(self) -> bool {
+        self == Self::NATIVE
+    }
+
+    pub fn is_swapped(self) -> bool {
+        !self.is_native()
+    }
 }
 
 impl Default for Endian {
