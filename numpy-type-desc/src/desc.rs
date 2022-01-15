@@ -3,7 +3,10 @@ use std::mem;
 use std::ops::Deref;
 use std::os::raw;
 
-use numpy::npyffi::NPY_TYPES;
+use pyo3::{ffi::Py_DECREF, PyResult, Python};
+
+use numpy::npyffi::{NPY_TYPES, PY_ARRAY_API};
+use numpy::PyArrayDescr;
 
 use pyo3_type_desc::{
     ArrayDescriptor, ComplexSize, Element, Endian, FloatSize, IntegerSize, RecordDescriptor,
@@ -12,6 +15,7 @@ use pyo3_type_desc::{
 
 use crate::datetime::DatetimeUnit;
 use crate::element::Scalar;
+use crate::npyffi::{PyArray_DatetimeDTypeMetaData, PyArray_DatetimeMetaData, NPY_BYTEORDER_CHAR};
 
 fn npy_int_type_lookup<T, T0, T1, T2>(npy_types: [NPY_TYPES; 3]) -> NPY_TYPES {
     // `npy_common.h` defines the integer aliases. In order, it checks:
@@ -161,5 +165,41 @@ impl<'a> DtypeArgs<'a> {
 
     pub fn record(rec: &'a RecordDescriptor<Scalar>) -> Self {
         Self::Record(rec)
+    }
+
+    pub unsafe fn into_dtype(self, py: Python) -> PyResult<&PyArrayDescr> {
+        let dtype = match self {
+            Self::Typenum(typenum, extra) => {
+                let mut dtype = PY_ARRAY_API.PyArray_DescrFromType(typenum as _);
+                // TODO: check if null?
+                match extra {
+                    Some(TypenumExtra::Flexible(elsize)) => {
+                        // TODO: checked cast? (hypothetical c_int overflow)
+                        (*dtype).elsize = elsize as _;
+                    }
+                    Some(TypenumExtra::Endian(endian)) if endian.is_swapped() => {
+                        // we bypass PyArray_DescrNewByteorder since it has lots of extra logic
+                        // that we don't need (e.g. recursively setting endianness for subarrays
+                        // and record type fields)
+                        let dtype_swapped = PY_ARRAY_API.PyArray_DescrNew(dtype);
+                        // TODO: check if null?
+                        (*dtype_swapped).byteorder = NPY_BYTEORDER_CHAR::NPY_OPPBYTE as _;
+                        Py_DECREF(dtype as _);
+                        dtype = dtype_swapped;
+                    }
+                    Some(TypenumExtra::DatetimeUnit(unit)) => {
+                        // an equivalent of create_datetime_dtype()
+                        let meta =
+                            PyArray_DatetimeMetaData { base: unit.into_npy_datetimeunit(), num: 1 };
+                        let dtype_meta = (*dtype).c_metadata as *mut PyArray_DatetimeDTypeMetaData;
+                        (*dtype_meta).meta = meta;
+                    }
+                    _ => {}
+                }
+                dtype
+            }
+            _ => todo!(),
+        };
+        Ok(py.from_owned_ptr(dtype as _))
     }
 }
