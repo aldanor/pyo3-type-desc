@@ -12,14 +12,14 @@ pub trait ScalarDescriptor: 'static + Clone {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct FieldDescriptor<T: ScalarDescriptor> {
     pub desc: TypeDescriptor<T>,
-    pub name: Option<Cow<'static, [u8]>>, // TODO: &str for convenience, or should it be &[u8]?
+    pub name: Option<Cow<'static, str>>,
     pub offset: usize,
 }
 
 impl<T: ScalarDescriptor> FieldDescriptor<T> {
     pub fn new<N>(desc: TypeDescriptor<T>, name: Option<N>, offset: usize) -> Self
     where
-        N: Into<Cow<'static, [u8]>>,
+        N: Into<Cow<'static, str>>,
     {
         Self { desc, name: name.map(Into::into), offset }
     }
@@ -37,7 +37,7 @@ impl<T: ScalarDescriptor + Debug> Debug for FieldDescriptor<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.offset)?;
         if let Some(name) = self.name.as_ref() {
-            write!(f, ":'{}'", std::str::from_utf8(name).unwrap_or("?"))?;
+            write!(f, ":'{}'", name)?;
         }
         write!(f, "={:?}", self.desc)
     }

@@ -236,7 +236,7 @@ fn add_trailing_padding<T: ScalarDescriptor>(
         rec.itemsize += padding;
     } else {
         let desc_itemsize = desc.itemsize();
-        let field = FieldDescriptor::new(desc, Some(b"f0".as_ref()), 0);
+        let field = FieldDescriptor::new(desc, Some("f0"), 0);
         desc = TypeDescriptor::record(vec![field], desc_itemsize + padding);
     }
     desc
@@ -368,7 +368,9 @@ fn parse_type_descriptor_impl(
 
         // parse the optional field name
         let name = if stream.consume_if_equals(b':') {
-            Some(stream.consume_until(b':')?) // TODO: empty field names?
+            let name = stream.consume_until(b':')?; // TODO: validate? empty? \0,\n? invalid utf-8?
+            let name = std::str::from_utf8(name).ok()?;
+            Some(name)
         } else {
             None
         };
@@ -406,7 +408,7 @@ fn parse_type_descriptor_impl(
                 }
             }
             // TODO: should names be validated in any way? (e.g. \0, \n should be probably banned)
-            out_fields.push(FieldDescriptor::new(desc, name.map(|name| name.to_vec()), offset));
+            out_fields.push(FieldDescriptor::new(desc, name.map(|name| name.to_owned()), offset));
         }
 
         offset += desc_itemsize + extra_offset;
