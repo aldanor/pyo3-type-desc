@@ -235,9 +235,10 @@ fn add_trailing_padding<T: ScalarDescriptor>(
     if let TypeDescriptor::Record(ref mut rec) = desc {
         rec.itemsize += padding;
     } else {
-        let desc_itemsize = desc.itemsize();
+        let itemsize = desc.itemsize();
+        let alignment = desc.alignment();
         let field = FieldDescriptor::new(desc, Some("f0"), 0);
-        desc = TypeDescriptor::record(vec![field], desc_itemsize + padding);
+        desc = TypeDescriptor::record(vec![field], itemsize + padding, Some(alignment));
     }
     desc
 }
@@ -444,7 +445,8 @@ fn parse_type_descriptor_impl(
 
     // at this point, numpy replaces all unnamed fields with f%d, but we can always do it later
 
-    let desc = TypeDescriptor::record(out_fields, out_itemsize);
+    // TODO: setting alignment to Some(common_alignment) - is this correct?
+    let desc = TypeDescriptor::record(out_fields, out_itemsize, Some(common_alignment));
     Some((desc, common_alignment))
 }
 

@@ -47,15 +47,16 @@ impl<T: ScalarDescriptor + Debug> Debug for FieldDescriptor<T> {
 pub struct RecordDescriptor<T: ScalarDescriptor> {
     pub fields: Cow<'static, [FieldDescriptor<T>]>,
     pub itemsize: usize, // TODO: NonZeroUsize? do we allow zero-size struct types?
+    pub alignment: Option<usize>,
 }
 
 impl<T: ScalarDescriptor> RecordDescriptor<T> {
     // TODO: add validation? fields don't overlap and don't go past itemsize, etc
-    pub fn new<F>(fields: F, itemsize: usize) -> Self
+    pub fn new<F>(fields: F, itemsize: usize, alignment: Option<usize>) -> Self
     where
         F: Into<Cow<'static, [FieldDescriptor<T>]>>,
     {
-        Self { fields: fields.into(), itemsize }
+        Self { fields: fields.into(), itemsize, alignment }
     }
 
     pub fn has_object(&self) -> bool {
@@ -66,6 +67,7 @@ impl<T: ScalarDescriptor> RecordDescriptor<T> {
         RecordDescriptor {
             fields: Cow::Owned(self.fields.iter().map(|field| field.map(func)).collect()),
             itemsize: self.itemsize,
+            alignment: self.alignment,
         }
     }
 }
@@ -150,11 +152,11 @@ impl<T: ScalarDescriptor> TypeDescriptor<T> {
         Self::Array(ArrayDescriptor::new(desc, shape))
     }
 
-    pub fn record<F>(fields: F, itemsize: usize) -> Self
+    pub fn record<F>(fields: F, itemsize: usize, alignment: Option<usize>) -> Self
     where
         F: Into<Cow<'static, [FieldDescriptor<T>]>>,
     {
-        Self::Record(RecordDescriptor::new(fields, itemsize))
+        Self::Record(RecordDescriptor::new(fields, itemsize, alignment))
     }
 
     pub fn itemsize(&self) -> usize {
@@ -163,6 +165,15 @@ impl<T: ScalarDescriptor> TypeDescriptor<T> {
             Self::Scalar(desc) => desc.itemsize(),
             Self::Array(arr) => arr.itemsize(),
             Self::Record(rec) => rec.itemsize,
+        }
+    }
+
+    pub fn alignment(&self) -> usize {
+        match self {
+            Self::Object => mem::size_of::<usize>(), // TODO: PyObject*? is this correct?
+            Self::Scalar(desc) => desc.alignment(),
+            Self::Array(arr) => arr.desc.alignment(),
+            Self::Record(rec) => rec.alignment.unwrap_or(1),
         }
     }
 
