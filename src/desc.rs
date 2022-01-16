@@ -70,6 +70,19 @@ impl<T: ScalarDescriptor> RecordDescriptor<T> {
             alignment: self.alignment,
         }
     }
+
+    pub fn is_aligned(&self) -> bool {
+        // TODO: zero-field structs? zero-sized structs? any other corner cases?
+        self.alignment.map_or(false, |align| {
+            let itemsize_ok = self.itemsize % align == 0;
+            // TODO: in alignment_ok: equality or divisibility?
+            let alignment_ok =
+                align == self.fields.iter().map(|field| field.desc.alignment()).max().unwrap_or(1);
+            let offsets_ok =
+                self.fields.iter().all(|field| field.offset % field.desc.alignment() == 0);
+            itemsize_ok && alignment_ok && offsets_ok
+        })
+    }
 }
 
 impl<T: ScalarDescriptor + Debug> Debug for RecordDescriptor<T> {
