@@ -83,6 +83,27 @@ impl<T: ScalarDescriptor> RecordDescriptor<T> {
             itemsize_ok && alignment_ok && offsets_ok
         })
     }
+
+    pub fn fill_names(&self) -> impl Iterator<Item = Cow<'static, str>> + '_ {
+        let (mut i, mut n) = (0, String::from("f0"));
+        self.fields.iter().map(move |field| match field.name.as_ref() {
+            Some(name) => name.clone(),
+            _ => {
+                while self
+                    .fields
+                    .iter()
+                    .any(|field| field.name.as_ref().map_or(false, |name| name.as_ref() == &n))
+                {
+                    i += 1;
+                    n = format!("f{}", i);
+                }
+                let name = mem::take(&mut n);
+                i += 1;
+                n = format!("f{}", i);
+                Cow::Owned(name)
+            }
+        })
+    }
 }
 
 impl<T: ScalarDescriptor + Debug> Debug for RecordDescriptor<T> {
