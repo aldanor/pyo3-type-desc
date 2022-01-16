@@ -5,7 +5,7 @@ pub mod parse;
 pub mod scalar;
 
 pub use {
-    common::{Endian, Signedness},
+    common::{BoxCow, Endian, Signedness},
     desc::{ArrayDescriptor, FieldDescriptor, RecordDescriptor, ScalarDescriptor, TypeDescriptor},
     element::Element,
     scalar::{ComplexSize, FloatSize, IntegerSize, Scalar},
