@@ -35,11 +35,10 @@ impl<T: ScalarDescriptor> FieldDescriptor<T> {
 
 impl<T: ScalarDescriptor + Debug> Debug for FieldDescriptor<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.offset)?;
         if let Some(name) = self.name.as_ref() {
-            write!(f, ":'{}'", name)?;
+            write!(f, "{:?}:", name)?;
         }
-        write!(f, "={:?}", self.desc)
+        write!(f, "{} => {:?}", self.offset, self.desc)
     }
 }
 
@@ -108,14 +107,21 @@ impl<T: ScalarDescriptor> RecordDescriptor<T> {
 
 impl<T: ScalarDescriptor + Debug> Debug for RecordDescriptor<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[{}]{{", self.itemsize)?;
+        write!(f, "{{")?;
         for (i, field) in self.fields.iter().enumerate() {
             if i != 0 {
                 write!(f, ", ")?;
             }
             write!(f, "{:?}", field)?;
         }
-        write!(f, "}}")
+        if !self.fields.is_empty() {
+            write!(f, " ")?;
+        }
+        write!(f, "[{}", self.itemsize)?;
+        if let Some(align) = self.alignment {
+            write!(f, ", {}", align)?;
+        }
+        write!(f, "]}}")
     }
 }
 
@@ -157,7 +163,14 @@ impl<T: ScalarDescriptor> ArrayDescriptor<T> {
 
 impl<T: ScalarDescriptor + Debug> Debug for ArrayDescriptor<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({:?};{:?})", self.desc, self.shape.as_ref())
+        write!(f, "[(")?;
+        for (i, dim) in self.shape.iter().enumerate() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", dim)?;
+        }
+        write!(f, "); {:?}]", self.desc)
     }
 }
 
