@@ -1,7 +1,15 @@
 #![allow(non_camel_case_types)]
 
+pub use self::array::*;
 pub use self::objects::*;
 pub use self::types::*;
+
+pub mod array {
+    // these are under `#if NPY_USE_PYMEM == 1` which seems to be always defined as 1
+    pub use pyo3::ffi::PyMem_RawFree as PyArray_free;
+    pub use pyo3::ffi::PyMem_RawMalloc as PyArray_malloc;
+    pub use pyo3::ffi::PyMem_RawRealloc as PyArray_realloc;
+}
 
 pub mod types {
     #[repr(u8)]
