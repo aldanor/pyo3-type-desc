@@ -281,8 +281,10 @@ pub fn dtype<T: Element<Scalar>>(py: Python) -> PyResult<&PyArrayDescr> {
 
 #[cfg(test)]
 mod tests {
+    use memoffset::offset_of_tuple;
     use num_complex::{Complex32, Complex64};
-    use pyo3::Python;
+    use numpy::PyArrayDescr;
+    use pyo3::{types::PyTuple, PyAny, Python};
 
     use crate::{dtype_from_type_descriptor as dt, td, Scalar};
     use pyo3_type_desc::Element;
@@ -375,6 +377,38 @@ mod tests {
             check!(py, timedelta64, ps);
             check!(py, timedelta64, fs);
             check!(py, timedelta64, as);
+        });
+    }
+
+    #[test]
+    fn test_tuple() {
+        fn check_field(fields: &PyAny, name: &str, dtype: &PyArrayDescr, offset: usize) {
+            let field: (&PyArrayDescr, usize) =
+                fields.get_item(&name).unwrap().downcast::<PyTuple>().unwrap().extract().unwrap();
+            assert_eq!(field, (dtype, offset));
+        }
+
+        macro_rules! check {
+            ($py:expr, ($($i:tt : [$ty:ty] => [$($tt:tt)+]),+)) => {{
+                type T = ($($ty),+);
+                let dtype = dt($py, &T::type_descriptor()).unwrap();
+                // TODO: no mappingproxy in pyo3 yet (https://github.com/PyO3/pyo3/issues/2108)
+                let fields = dtype.getattr("fields").unwrap();
+                assert_eq!(fields.len().unwrap(), 1_usize + check!(@last $($i)+));
+                $(
+                let field_name = format!("f{}", $i);
+                let field_dtype = dt($py, &<$ty>::type_descriptor()).unwrap();
+                let field_offset = offset_of_tuple!(T, $i);
+                check_field(fields, &field_name, field_dtype, field_offset);
+                )+
+                let names = dtype.getattr("names").unwrap().extract::<Vec<String>>().unwrap();
+                assert_eq!(names, &[$(format!("f{}", $i),)+]);
+            }};
+            (@last $head:tt $($tail:tt)+) => { check!(@last $($tail)+) };
+            (@last $tt:tt) => { $tt };
+        }
+        Python::with_gil(|py| {
+            check!(py, (0: [i32] => [=i32], 1: [bool] => [?]));
         });
     }
 }
