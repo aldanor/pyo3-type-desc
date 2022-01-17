@@ -1,5 +1,5 @@
 pub mod datetime;
-pub mod desc;
+pub mod dtype;
 pub mod element;
 pub mod npyffi;
 
@@ -7,7 +7,7 @@ pub mod npyffi;
 pub mod macros;
 
 pub use datetime::DatetimeUnit;
-pub use desc::{dtype, dtype_from_type_descriptor};
+pub use dtype::{dtype, dtype_from_type_descriptor};
 pub use element::Scalar;
 
 pub use pyo3_type_desc::Element;
