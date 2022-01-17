@@ -13,7 +13,7 @@ use numpy::npyffi::{PyArray_Descr, NPY_TYPES, PY_ARRAY_API};
 use numpy::PyArrayDescr;
 
 use pyo3_type_desc::{
-    ArrayDescriptor, ComplexSize, Endian, FloatSize, IntegerSize, RecordDescriptor,
+    ArrayDescriptor, ComplexSize, Element, Endian, FloatSize, IntegerSize, RecordDescriptor,
     Scalar as BaseScalar, Signedness, TypeDescriptor,
 };
 
@@ -273,4 +273,8 @@ pub fn dtype_from_type_descriptor<'py>(
     py: Python<'py>, desc: &TypeDescriptor<Scalar>,
 ) -> PyResult<&'py PyArrayDescr> {
     Ok(unsafe { py.from_owned_ptr(create_dtype_any(py, desc)? as _) })
+}
+
+pub fn dtype<T: Element<Scalar>>(py: Python) -> PyResult<&PyArrayDescr> {
+    dtype_from_type_descriptor(py, &T::type_descriptor())
 }

@@ -7,5 +7,5 @@ pub mod npyffi;
 pub mod macros;
 
 pub use datetime::DatetimeUnit;
-pub use desc::dtype_from_type_descriptor;
+pub use desc::{dtype, dtype_from_type_descriptor};
 pub use element::Scalar;
