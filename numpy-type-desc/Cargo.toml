@@ -6,8 +6,11 @@ edition = "2018"
 rust-version = "1.48"
 
 [dependencies]
-pyo3 = "^0.15.1"
+pyo3 = { version = "0.15.1", default-features = false }
 numpy = { git = "https://github.com/aldanor/rust-numpy.git", branch = "feature/slim-element" }
 pyo3-type-desc = { path = "..", features = ["complex"] }
 num-complex = "0.4"
 num-traits = "0.2"
+
+[dev-dependencies]
+pyo3 = { version = "0.15.1", features = ["auto-initialize"] }
