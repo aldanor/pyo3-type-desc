@@ -333,4 +333,48 @@ mod tests {
             }
         });
     }
+
+    #[test]
+    fn test_datetime_scalars() {
+        macro_rules! check {
+            ($py:expr, $ty:ident, $unit:ident) => {{
+                // (py, datetime64, ns)
+                let desc = td!($ty[$unit]);
+                let dtype = dt($py, &desc).unwrap();
+                let type_str = stringify!($ty);
+                let name_str = format!("{}[{}]", type_str, stringify!($unit));
+                assert_eq!(dtype.get_type().name().unwrap(), type_str);
+                assert_eq!(dtype.getattr("name").unwrap().to_string(), name_str);
+            }};
+        }
+        Python::with_gil(|py| {
+            check!(py, datetime64, Y);
+            check!(py, datetime64, M);
+            check!(py, datetime64, W);
+            check!(py, datetime64, D);
+            check!(py, datetime64, h);
+            check!(py, datetime64, m);
+            check!(py, datetime64, s);
+            check!(py, datetime64, ms);
+            check!(py, datetime64, us);
+            check!(py, datetime64, ns);
+            check!(py, datetime64, ps);
+            check!(py, datetime64, fs);
+            check!(py, datetime64, as);
+
+            check!(py, timedelta64, Y);
+            check!(py, timedelta64, M);
+            check!(py, timedelta64, W);
+            check!(py, timedelta64, D);
+            check!(py, timedelta64, h);
+            check!(py, timedelta64, m);
+            check!(py, timedelta64, s);
+            check!(py, timedelta64, ms);
+            check!(py, timedelta64, us);
+            check!(py, timedelta64, ns);
+            check!(py, timedelta64, ps);
+            check!(py, timedelta64, fs);
+            check!(py, timedelta64, as);
+        });
+    }
 }
