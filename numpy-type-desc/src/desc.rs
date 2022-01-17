@@ -278,3 +278,59 @@ pub fn dtype_from_type_descriptor<'py>(
 pub fn dtype<T: Element<Scalar>>(py: Python) -> PyResult<&PyArrayDescr> {
     dtype_from_type_descriptor(py, &T::type_descriptor())
 }
+
+#[cfg(test)]
+mod tests {
+    use num_complex::{Complex32, Complex64};
+    use pyo3::Python;
+
+    use crate::{dtype_from_type_descriptor as dt, td, Scalar};
+    use pyo3_type_desc::Element;
+
+    #[test]
+    fn test_base_scalars() {
+        macro_rules! check {
+            ($py:expr, $ty:ty, $str:expr, $($tt:tt)+) => {{
+                assert_eq!(<$ty as Element<Scalar>>::type_descriptor(), td!($($tt)+));
+                check!($py, $str, $($tt)+);
+            }};
+            ($py:expr, $str:expr, $($tt:tt)+) => {{
+                let desc = td!($($tt)+);
+                let dtype = dt($py, &desc).unwrap();
+                assert_eq!(dtype.get_type().name().unwrap(), $str);
+                let mut name = String::from($str);
+                if name.ends_with('_') {
+                    name.pop();
+                }
+                // TODO: add 'name()' to PyArrayDescr? (and also some other attrs of np.dtype)
+                assert_eq!(dtype.getattr("name").unwrap().to_string(), name);
+            }};
+        }
+        Python::with_gil(|py| {
+            check!(py, "object_", O);
+            check!(py, bool, "bool_", ?);
+            check!(py, i8, "int8", i8);
+            check!(py, u8, "uint8", u8);
+            check!(py, i16, "int16", =i16);
+            check!(py, u16, "uint16", =u16);
+            check!(py, i32, "int32", =i32);
+            check!(py, u32, "uint32", =u32);
+            check!(py, i64, "int64", =i64);
+            check!(py, u64, "uint64", =u64);
+            check!(py, f32, "float32", =f32);
+            check!(py, f64, "float64", =f64);
+            check!(py, Complex32, "complex64", =c32);
+            check!(py, Complex64, "complex128", =c64);
+            #[cfg(target_pointer_width = "32")]
+            {
+                check!(py, usize, "uint32", =u32);
+                check!(py, isize, "int32", =i32);
+            }
+            #[cfg(target_pointer_width = "64")]
+            {
+                check!(py, usize, "uint64", =u64);
+                check!(py, isize, "int64", =i64);
+            }
+        });
+    }
+}
