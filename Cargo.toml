@@ -8,6 +8,7 @@ rust-version = "1.48"
 [dependencies]
 pyo3 = "^0.15.1"
 num-complex = { version = "0.4", optional = true }
+memoffset = "0.6"
 
 [features]
 default = []

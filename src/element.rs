@@ -1,10 +1,13 @@
+use std::mem;
+
+use memoffset::offset_of_tuple;
+
 use crate::common::{Endian, Signedness};
-use crate::desc::TypeDescriptor;
+use crate::desc::{FieldDescriptor, RecordDescriptor, ScalarDescriptor, TypeDescriptor};
 use crate::scalar::{FloatSize, IntegerSize, Scalar};
 
 #[cfg(feature = "complex")]
 use crate::scalar::ComplexSize;
-use crate::ScalarDescriptor;
 
 pub unsafe trait Element<S: ScalarDescriptor>: Clone + Send {
     fn type_descriptor() -> TypeDescriptor<S>;
@@ -69,3 +72,40 @@ impl_element!(int: isize => Eight, Signed);
 impl_element!(complex: num_complex::Complex32 => Four);
 #[cfg(feature = "complex")]
 impl_element!(complex: num_complex::Complex64 => Eight);
+
+macro_rules! impl_element_tuple {
+    ($($field:tt, $ty:ident);+) => {
+        unsafe impl<S: ScalarDescriptor, $($ty),+> Element<S> for ($($ty,)+)
+        where
+            $($ty: Element<S>,)+
+        {
+            #[inline]
+            fn type_descriptor() -> TypeDescriptor<S> {
+                TypeDescriptor::Record(RecordDescriptor {
+                    fields: vec![$(
+                        FieldDescriptor {
+                            desc: <$ty>::type_descriptor(),
+                            name: None,
+                            offset: offset_of_tuple!(Self, $field),
+                        }
+                    ),+].into(),
+                    itemsize: mem::size_of::<Self>(),
+                    alignment: Some(mem::align_of::<Self>()),
+                })
+            }
+        }
+    };
+}
+
+impl_element_tuple!(0, A);
+impl_element_tuple!(0, A; 1, B);
+impl_element_tuple!(0, A; 1, B; 2, C);
+impl_element_tuple!(0, A; 1, B; 2, C; 3, D);
+impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E);
+impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E; 5, F);
+impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E; 5, F; 6, G);
+impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E; 5, F; 6, G; 7, H);
+impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E; 5, F; 6, G; 7, H; 8, I);
+impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E; 5, F; 6, G; 7, H; 8, I; 9, J);
+impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E; 5, F; 6, G; 7, H; 8, I; 9, J; 10, K);
+impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E; 5, F; 6, G; 7, H; 8, I; 9, J; 10, K; 11, L);
