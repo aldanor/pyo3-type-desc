@@ -412,7 +412,7 @@ mod tests {
 
         macro_rules! check {
             ($py:expr, ($($i:tt : [$ty:ty] => [$($tt:tt)+]),+)) => {{
-                type T = ($($ty),+);
+                type T = ($($ty,)+);
                 let dtype = dt($py, &T::type_descriptor()).unwrap();
                 // TODO: no mappingproxy in pyo3 yet (https://github.com/PyO3/pyo3/issues/2108)
                 let fields = dtype.getattr("fields").unwrap();
@@ -425,12 +425,40 @@ mod tests {
                 )+
                 let names = dtype.getattr("names").unwrap().extract::<Vec<String>>().unwrap();
                 assert_eq!(names, &[$(format!("f{}", $i),)+]);
+                assert!(dtype.getattr("isalignedstruct").unwrap().extract::<bool>().unwrap());
             }};
             (@last $head:tt $($tail:tt)+) => { check!(@last $($tail)+) };
             (@last $tt:tt) => { $tt };
         }
+
+        type X = (bool, u64);
+        let (x0, x1) = (offset_of_tuple!(X, 0), offset_of_tuple!(X, 1));
+        let (x_s, x_a) = (mem::size_of::<X>(), mem::align_of::<X>());
+        type Y = (i8, X, PyObject);
+        let (y0, y1, y2) = (offset_of_tuple!(Y, 0), offset_of_tuple!(Y, 1), offset_of_tuple!(Y, 2));
+        let (y_s, y_a) = (mem::size_of::<Y>(), mem::align_of::<Y>());
+        assert_eq!(
+            Y::type_descriptor(),
+            td!({y0 => i8, y1 => {x0 => ?, x1 => u64 [x_s, x_a]}, y2 => object [y_s, y_a]})
+        );
+
         Python::with_gil(|py| {
+            check!(py, (0: [u64] => [u64]));
             check!(py, (0: [i32] => [=i32], 1: [bool] => [?]));
+            check!(py, (
+                0: [bool] => [?],
+                1: [PyObject] => [O],
+                2: [Complex32] => [c32],
+                3: [Complex64] => [c64],
+                4: [f32] => [f32],
+                5: [f64] => [f64],
+                6: [i8] => [i8],
+                7: [u8] => [u8],
+                8: [i16] => [=i16],
+                9: [u32] => [u32],
+                10: [i64] => [=i64],
+                11: [u64] => [u64]
+            ));
         });
     }
 }
