@@ -81,6 +81,12 @@ impl<'a, T: Hash + ?Sized> Hash for BoxCow<'a, T> {
     }
 }
 
+impl<'a, T> From<T> for BoxCow<'a, T> {
+    fn from(value: T) -> Self {
+        Self::Owned(Box::new(value))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Endian {
     Little,
