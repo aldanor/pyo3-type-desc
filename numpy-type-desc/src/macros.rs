@@ -6,20 +6,20 @@ macro_rules! td {
     };
 }
 
-#[macro_export(local_inner_macros)]
+#[macro_export]
 #[doc(hidden)]
 macro_rules! td_impl {
     // scalar type helpers
 
     (@td) => {
-        pyo3_type_desc::TypeDescriptor<crate::Scalar>
+        pyo3_type_desc::TypeDescriptor<$crate::Scalar>
     };
 
     (@base $ident:ident) => {
-        <td_impl!(@td)>::Scalar(crate::Scalar::Base(pyo3_type_desc::Scalar::$ident))
+        <td_impl!(@td)>::Scalar($crate::Scalar::Base(pyo3_type_desc::Scalar::$ident))
     };
     (@base $ident:ident $($expr:expr)*) => {
-        <td_impl!(@td)>::Scalar(crate::Scalar::Base(pyo3_type_desc::Scalar::$ident($($expr),*)))
+        <td_impl!(@td)>::Scalar($crate::Scalar::Base(pyo3_type_desc::Scalar::$ident($($expr),*)))
     };
 
     (@char $sign:ident) => {
@@ -55,7 +55,7 @@ macro_rules! td_impl {
     };
 
     (@datetime $ty:ident $unit:expr) => {
-        <td_impl!(@td)>::Scalar(crate::Scalar::$ty($unit))
+        <td_impl!(@td)>::Scalar($crate::Scalar::$ty($unit))
     };
 
     // object type
@@ -128,20 +128,20 @@ macro_rules! td_impl {
 
     // datetime types
 
-    (@dtunit Y) => { crate::DatetimeUnit::Year };
-    (@dtunit Y) => { crate::DatetimeUnit::Year };
-    (@dtunit M) => { crate::DatetimeUnit::Month };
-    (@dtunit W) => { crate::DatetimeUnit::Week };
-    (@dtunit D) => { crate::DatetimeUnit::Day };
-    (@dtunit h) => { crate::DatetimeUnit::Hour };
-    (@dtunit m) => { crate::DatetimeUnit::Minute };
-    (@dtunit s) => { crate::DatetimeUnit::Second };
-    (@dtunit ms) => { crate::DatetimeUnit::Millisecond };
-    (@dtunit us) => { crate::DatetimeUnit::Microsecond };
-    (@dtunit ns) => { crate::DatetimeUnit::Nanosecond };
-    (@dtunit ps) => { crate::DatetimeUnit::Picosecond };
-    (@dtunit fs) => { crate::DatetimeUnit::Femtosecond };
-    (@dtunit as) => { crate::DatetimeUnit::Attosecond };
+    (@dtunit Y) => { $crate::DatetimeUnit::Year };
+    (@dtunit Y) => { $crate::DatetimeUnit::Year };
+    (@dtunit M) => { $crate::DatetimeUnit::Month };
+    (@dtunit W) => { $crate::DatetimeUnit::Week };
+    (@dtunit D) => { $crate::DatetimeUnit::Day };
+    (@dtunit h) => { $crate::DatetimeUnit::Hour };
+    (@dtunit m) => { $crate::DatetimeUnit::Minute };
+    (@dtunit s) => { $crate::DatetimeUnit::Second };
+    (@dtunit ms) => { $crate::DatetimeUnit::Millisecond };
+    (@dtunit us) => { $crate::DatetimeUnit::Microsecond };
+    (@dtunit ns) => { $crate::DatetimeUnit::Nanosecond };
+    (@dtunit ps) => { $crate::DatetimeUnit::Picosecond };
+    (@dtunit fs) => { $crate::DatetimeUnit::Femtosecond };
+    (@dtunit as) => { $crate::DatetimeUnit::Attosecond };
 
     (datetime64[$unit:ident]) => { td_impl!(@datetime Datetime td_impl!(@dtunit $unit)) };
     (timedelta64[$unit:ident]) => { td_impl!(@datetime Timedelta td_impl!(@dtunit $unit)) };
