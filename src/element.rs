@@ -1,6 +1,7 @@
 use std::mem;
 
 use memoffset::offset_of_tuple;
+use pyo3::PyObject;
 
 use crate::common::{Endian, Signedness};
 use crate::desc::{FieldDescriptor, RecordDescriptor, ScalarDescriptor, TypeDescriptor};
@@ -16,34 +17,37 @@ pub unsafe trait Element<S: ScalarDescriptor>: Clone + Send {
 type _S = Scalar;
 
 macro_rules! impl_element {
-    ($ty:ty, $expr:expr) => {
+    ($ty:ty => $expr:expr) => {
         unsafe impl<S: ScalarDescriptor + From<Scalar>> Element<S> for $ty {
             #[inline]
             fn type_descriptor() -> TypeDescriptor<S> {
-                const TYPE: Scalar = $expr;
-                debug_assert_eq!(std::mem::size_of::<$ty>(), TYPE.itemsize());
-                TypeDescriptor::Scalar(S::from(TYPE))
+                let desc: TypeDescriptor<S> = $expr;
+                debug_assert_eq!(std::mem::size_of::<$ty>(), desc.itemsize());
+                $expr
             }
         }
     };
-    ($ty:ty => $variant:ident) => {
-        impl_element!($ty, _S::$variant);
+    (@s: $ty:ty, $expr:expr) => {
+        impl_element!($ty => TypeDescriptor::Scalar($expr.into()));
+    };
+    (scalar: $ty:ty => $variant:ident) => {
+        impl_element!(@s: $ty, _S::$variant);
     };
     (char: $ty:ty => $sign:ident) => {
-        impl_element!($ty, _S::Char(Signedness::$sign));
+        impl_element!(@s: $ty, _S::Char(Signedness::$sign));
     };
     (int: $ty:ty => $size:ident, $sign:ident) => {
-        impl_element!($ty, _S::Integer(IntegerSize::$size, Signedness::$sign, Endian::NATIVE));
+        impl_element!(@s: $ty, _S::Integer(IntegerSize::$size, Signedness::$sign, Endian::NATIVE));
     };
     (float: $ty:ty => $size:ident) => {
-        impl_element!($ty, _S::Float(FloatSize::$size, Endian::NATIVE));
+        impl_element!(@s: $ty, _S::Float(FloatSize::$size, Endian::NATIVE));
     };
     (complex: $ty:ty => $size:ident) => {
-        impl_element!($ty, _S::Complex(ComplexSize::$size, Endian::NATIVE));
+        impl_element!(@s: $ty, _S::Complex(ComplexSize::$size, Endian::NATIVE));
     };
 }
 
-impl_element!(bool => Bool);
+impl_element!(scalar: bool => Bool);
 
 impl_element!(char: i8 => Signed);
 impl_element!(char: u8 => Unsigned);
@@ -72,6 +76,8 @@ impl_element!(int: isize => Eight, Signed);
 impl_element!(complex: num_complex::Complex32 => Four);
 #[cfg(feature = "complex")]
 impl_element!(complex: num_complex::Complex64 => Eight);
+
+impl_element!(PyObject => TypeDescriptor::Object);
 
 macro_rules! impl_element_tuple {
     ($($field:tt, $ty:ident);+) => {
