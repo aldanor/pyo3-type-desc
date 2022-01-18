@@ -281,13 +281,35 @@ pub fn dtype<T: Element<Scalar>>(py: Python) -> PyResult<&PyArrayDescr> {
 
 #[cfg(test)]
 mod tests {
+    // TODO: these tests could be simplified if PyArrayDescr was extended to cover all of
+    // the np.dtype attributes in a convenient fashion (then these tests can be refactored)
+
+    use std::mem;
+
     use memoffset::offset_of_tuple;
     use num_complex::{Complex32, Complex64};
     use numpy::PyArrayDescr;
-    use pyo3::{types::PyTuple, PyAny, Python};
+    use pyo3::{types::PyTuple, PyAny, PyObject, Python};
 
     use crate::{dtype_from_type_descriptor as dt, td, Scalar};
     use pyo3_type_desc::Element;
+
+    #[test]
+    fn test_object() {
+        Python::with_gil(|py| {
+            let dtype = dt(py, &PyObject::type_descriptor()).unwrap();
+            assert_eq!(
+                dtype.getattr("itemsize").unwrap().extract::<usize>().unwrap(),
+                mem::size_of::<PyObject>()
+            );
+            assert_eq!(
+                dtype.getattr("alignment").unwrap().extract::<usize>().unwrap(),
+                mem::align_of::<PyObject>()
+            );
+            assert_eq!(dtype.get_type().name().unwrap(), "object_");
+            assert_eq!(dtype.getattr("name").unwrap().to_string(), "object");
+        })
+    }
 
     #[test]
     fn test_base_scalars() {
