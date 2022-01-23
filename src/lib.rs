@@ -7,6 +7,6 @@ pub mod scalar;
 pub use {
     common::{BoxCow, Endian, Signedness},
     desc::{ArrayDescriptor, FieldDescriptor, RecordDescriptor, ScalarDescriptor, TypeDescriptor},
-    element::Element,
+    element::{BufferElement, Element},
     scalar::{ComplexSize, FloatSize, IntegerSize, Scalar},
 };

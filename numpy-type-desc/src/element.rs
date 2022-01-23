@@ -1,8 +1,11 @@
 use std::fmt::{self, Debug};
 
-use pyo3_type_desc::{Scalar as BaseScalar, ScalarDescriptor};
+use pyo3_type_desc::{Element, Scalar as BaseScalar, ScalarDescriptor};
 
 use crate::datetime::DatetimeUnit;
+
+pub unsafe trait ArrayElement: Element<Scalar> {}
+unsafe impl<T: Element<Scalar>> ArrayElement for T {}
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Scalar {

@@ -13,12 +13,12 @@ use numpy::npyffi::{PyArray_Descr, NPY_TYPES, PY_ARRAY_API};
 use numpy::PyArrayDescr;
 
 use pyo3_type_desc::{
-    ArrayDescriptor, ComplexSize, Element, Endian, FloatSize, IntegerSize, RecordDescriptor,
+    ArrayDescriptor, ComplexSize, Endian, FloatSize, IntegerSize, RecordDescriptor,
     Scalar as BaseScalar, Signedness, TypeDescriptor,
 };
 
 use crate::datetime::DatetimeUnit;
-use crate::element::Scalar;
+use crate::element::{ArrayElement, Scalar};
 use crate::npyffi::{
     PyArray_DatetimeDTypeMetaData, PyArray_DatetimeMetaData, PyArray_malloc, NPY_ALIGNED_STRUCT,
     NPY_BYTEORDER_CHAR, NPY_FROM_FIELDS, NPY_NEEDS_PYAPI,
@@ -275,7 +275,7 @@ pub fn dtype_from_type_descriptor<'py>(
     Ok(unsafe { py.from_owned_ptr(create_dtype_any(py, desc)? as _) })
 }
 
-pub fn dtype<T: Element<Scalar>>(py: Python) -> PyResult<&PyArrayDescr> {
+pub fn dtype<T: ArrayElement>(py: Python) -> PyResult<&PyArrayDescr> {
     dtype_from_type_descriptor(py, &T::type_descriptor())
 }
 
@@ -288,8 +288,7 @@ mod tests {
     use numpy::PyArrayDescr;
     use pyo3::{PyObject, Python};
 
-    use crate::{dtype, dtype_from_type_descriptor, td, Scalar};
-    use pyo3_type_desc::Element;
+    use crate::{dtype, dtype_from_type_descriptor, td, Element};
 
     #[test]
     fn test_object() {
@@ -307,7 +306,7 @@ mod tests {
     fn test_base_scalars() {
         macro_rules! check {
             ($py:expr, $ty:ty, $str:expr, $($tt:tt)+) => {{
-                let desc = <$ty as Element<Scalar>>::type_descriptor();
+                let desc = <$ty>::type_descriptor();
                 assert_eq!(desc, td!($($tt)+));
                 let d = dtype_from_type_descriptor($py, &desc).unwrap();
                 assert_eq!(d, dtype::<$ty>($py).unwrap());

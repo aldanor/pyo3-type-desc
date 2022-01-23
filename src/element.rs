@@ -14,6 +14,9 @@ pub unsafe trait Element<S: ScalarDescriptor>: Clone + Send {
     fn type_descriptor() -> TypeDescriptor<S>;
 }
 
+pub unsafe trait BufferElement: Element<Scalar> {}
+unsafe impl<T: Element<Scalar>> BufferElement for T {}
+
 type _S = Scalar;
 
 macro_rules! impl_element {
