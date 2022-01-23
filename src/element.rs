@@ -115,3 +115,21 @@ impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E; 5, F; 6, G; 7, H; 8, I);
 impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E; 5, F; 6, G; 7, H; 8, I; 9, J);
 impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E; 5, F; 6, G; 7, H; 8, I; 9, J; 10, K);
 impl_element_tuple!(0, A; 1, B; 2, C; 3, D; 4, E; 5, F; 6, G; 7, H; 8, I; 9, J; 10, K; 11, L);
+
+#[rustversion::since(1.51)]
+unsafe impl<S: ScalarDescriptor, T: Element<S>, const N: usize> Element<S> for [T; N] {
+    fn type_descriptor() -> TypeDescriptor<S> {
+        // just a note: array size may be zero
+        use crate::ArrayDescriptor;
+        TypeDescriptor::Array(match T::type_descriptor() {
+            TypeDescriptor::Array(ArrayDescriptor { desc, shape }) => {
+                // TODO: do we want to always collapse shapes? should this be preventable or not?
+                let mut newshape = Vec::with_capacity(shape.len() + 1);
+                newshape.push(N);
+                newshape.extend(shape.iter().copied());
+                ArrayDescriptor { desc, shape: shape.into() }
+            }
+            desc => ArrayDescriptor { desc: desc.into(), shape: [N].as_ref().into() },
+        })
+    }
+}
