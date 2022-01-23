@@ -299,6 +299,7 @@ mod tests {
             assert_eq!(d.itemsize(), mem::size_of::<PyObject>());
             assert_eq!(d.alignment(), mem::align_of::<PyObject>());
             assert_eq!(d.typeobj().name().unwrap(), "object_");
+            assert!(d.has_object());
         })
     }
 
@@ -308,16 +309,19 @@ mod tests {
             ($py:expr, $ty:ty, $str:expr, $($tt:tt)+) => {{
                 let desc = <$ty as Element<Scalar>>::type_descriptor();
                 assert_eq!(desc, td!($($tt)+));
-                assert_eq!(
-                    dtype::<$ty>($py).unwrap(),
-                    dtype_from_type_descriptor($py, &desc).unwrap(),
-                );
+                let d = dtype_from_type_descriptor($py, &desc).unwrap();
+                assert_eq!(d, dtype::<$ty>($py).unwrap());
+                assert_eq!(d.itemsize(), mem::size_of::<$ty>());
+                assert_eq!(d.alignment(), mem::align_of::<$ty>());
                 check!($py, $str, $($tt)+);
             }};
             ($py:expr, $str:expr, $($tt:tt)+) => {{
                 let desc = td!($($tt)+);
                 let d = dtype_from_type_descriptor($py, &desc).unwrap();
                 assert_eq!(d.typeobj().name().unwrap(), $str);
+                assert_eq!(d.has_object(), $str == "object_");
+                assert!(!d.has_subarray());
+                assert!(d.names().is_none());
             }};
         }
         Python::with_gil(|py| {
@@ -356,6 +360,9 @@ mod tests {
                 let d = dtype_from_type_descriptor($py, &desc).unwrap();
                 let type_str = stringify!($ty);
                 assert_eq!(d.typeobj().name().unwrap(), type_str);
+                assert!(!d.has_object());
+                assert_eq!(d.itemsize(), 8);
+                assert_eq!(d.alignment(), 8);
             }};
         }
         Python::with_gil(|py| {
@@ -413,18 +420,21 @@ mod tests {
             (@last $tt:tt) => { $tt };
         }
 
-        type X = (bool, u64);
-        let (x0, x1) = (offset_of_tuple!(X, 0), offset_of_tuple!(X, 1));
-        let (x_s, x_a) = (mem::size_of::<X>(), mem::align_of::<X>());
-        type Y = (i8, X, PyObject);
-        let (y0, y1, y2) = (offset_of_tuple!(Y, 0), offset_of_tuple!(Y, 1), offset_of_tuple!(Y, 2));
-        let (y_s, y_a) = (mem::size_of::<Y>(), mem::align_of::<Y>());
-        assert_eq!(
-            Y::type_descriptor(),
-            td!({y0 => i8, y1 => {x0 => ?, x1 => u64 [x_s, x_a]}, y2 => object [y_s, y_a]})
-        );
-
         Python::with_gil(|py| {
+            type X = (bool, u64);
+            let (x0, x1) = (offset_of_tuple!(X, 0), offset_of_tuple!(X, 1));
+            let (x_s, x_a) = (mem::size_of::<X>(), mem::align_of::<X>());
+            type Y = (i8, X, PyObject);
+            let (y0, y1, y2) =
+                (offset_of_tuple!(Y, 0), offset_of_tuple!(Y, 1), offset_of_tuple!(Y, 2));
+            let (y_s, y_a) = (mem::size_of::<Y>(), mem::align_of::<Y>());
+            assert_eq!(
+                Y::type_descriptor(),
+                td!({y0 => i8, y1 => {x0 => ?, x1 => u64 [x_s, x_a]}, y2 => object [y_s, y_a]})
+            );
+            assert!(!dtype::<X>(py).unwrap().has_object());
+            assert!(dtype::<Y>(py).unwrap().has_object());
+
             check!(py, (0: [u64] => [u64]));
             check!(py, (0: [i32] => [=i32], 1: [bool] => [?]));
             check!(py, (
@@ -455,6 +465,7 @@ mod tests {
                 assert!(d.has_subarray());
                 assert_eq!(d.base(), dtype::<$base>($py).unwrap());
                 assert_eq!(d.shape(), $shape);
+                assert_eq!(d.ndim(), $shape.len());
             }};
         }
         Python::with_gil(|py| {
