@@ -180,7 +180,7 @@ unsafe fn create_dtype_array(
         )
     })?;
 
-    let base = create_dtype_any(py, &desc)?;
+    let base = create_dtype_any(py, desc)?;
 
     let dtype = PY_ARRAY_API.PyArray_DescrFromType(NPY_TYPES::NPY_VOID as _);
     if dtype.is_null() {
@@ -264,8 +264,8 @@ unsafe fn create_dtype_any(
     match desc {
         TypeDescriptor::Object => create_dtype_object(py),
         TypeDescriptor::Scalar(scalar) => create_dtype_scalar(py, scalar),
-        TypeDescriptor::Array(arr) => create_dtype_array(py, &arr),
-        TypeDescriptor::Record(rec) => create_dtype_record(py, &rec),
+        TypeDescriptor::Array(arr) => create_dtype_array(py, arr),
+        TypeDescriptor::Record(rec) => create_dtype_record(py, rec),
     }
 }
 

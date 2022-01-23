@@ -91,7 +91,7 @@ impl<T: ScalarDescriptor> RecordDescriptor<T> {
                 while self
                     .fields
                     .iter()
-                    .any(|field| field.name.as_ref().map_or(false, |name| name.as_ref() == &n))
+                    .any(|field| field.name.as_ref().map_or(false, |name| name.as_ref() == n))
                 {
                     i += 1;
                     n = format!("f{}", i);

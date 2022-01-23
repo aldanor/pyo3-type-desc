@@ -127,7 +127,7 @@ unsafe impl<S: ScalarDescriptor, T: Element<S>, const N: usize> Element<S> for [
                 let mut newshape = Vec::with_capacity(shape.len() + 1);
                 newshape.push(N);
                 newshape.extend(shape.iter().copied());
-                ArrayDescriptor { desc, shape: shape.into() }
+                ArrayDescriptor { desc, shape }
             }
             desc => ArrayDescriptor { desc: desc.into(), shape: [N].as_ref().into() },
         })
