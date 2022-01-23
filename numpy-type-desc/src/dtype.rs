@@ -9,7 +9,11 @@ use pyo3::{
     AsPyPointer, IntoPy, IntoPyPointer, Py, PyErr, PyResult, Python,
 };
 
-use numpy::npyffi::{PyArray_Descr, NPY_TYPES, PY_ARRAY_API};
+use numpy::npyffi::{
+    PyArray_DatetimeDTypeMetaData, PyArray_DatetimeMetaData, PyArray_Descr, PyArray_malloc,
+    NPY_ALIGNED_STRUCT, NPY_BYTEORDER_CHAR, NPY_FROM_FIELDS, NPY_NEEDS_PYAPI, NPY_TYPES,
+    PY_ARRAY_API,
+};
 use numpy::PyArrayDescr;
 
 use pyo3_type_desc::{
@@ -19,10 +23,6 @@ use pyo3_type_desc::{
 
 use crate::datetime::DatetimeUnit;
 use crate::element::{ArrayElement, Scalar};
-use crate::npyffi::{
-    PyArray_DatetimeDTypeMetaData, PyArray_DatetimeMetaData, PyArray_malloc, NPY_ALIGNED_STRUCT,
-    NPY_BYTEORDER_CHAR, NPY_FROM_FIELDS, NPY_NEEDS_PYAPI,
-};
 
 #[inline]
 unsafe fn pyarray_descr_replace(descr: &mut *mut PyArray_Descr) {
