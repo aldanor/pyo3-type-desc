@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 use numpy::npyffi::NPY_DATETIMEUNIT;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[repr(u32)]
+#[repr(C)]
 pub enum DatetimeUnit {
     Year = 0,
     Month = 1,
