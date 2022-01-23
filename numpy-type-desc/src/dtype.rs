@@ -288,16 +288,17 @@ mod tests {
     use numpy::PyArrayDescr;
     use pyo3::{PyObject, Python};
 
-    use crate::{dtype_from_type_descriptor as dt, td, Scalar};
+    use crate::{dtype, dtype_from_type_descriptor, td, Scalar};
     use pyo3_type_desc::Element;
 
     #[test]
     fn test_object() {
         Python::with_gil(|py| {
-            let dtype = dt(py, &PyObject::type_descriptor()).unwrap();
-            assert_eq!(dtype.itemsize(), mem::size_of::<PyObject>());
-            assert_eq!(dtype.alignment(), mem::align_of::<PyObject>());
-            assert_eq!(dtype.typeobj().name().unwrap(), "object_");
+            let d = dtype_from_type_descriptor(py, &PyObject::type_descriptor()).unwrap();
+            assert_eq!(d, dtype::<PyObject>(py).unwrap());
+            assert_eq!(d.itemsize(), mem::size_of::<PyObject>());
+            assert_eq!(d.alignment(), mem::align_of::<PyObject>());
+            assert_eq!(d.typeobj().name().unwrap(), "object_");
         })
     }
 
@@ -305,13 +306,18 @@ mod tests {
     fn test_base_scalars() {
         macro_rules! check {
             ($py:expr, $ty:ty, $str:expr, $($tt:tt)+) => {{
-                assert_eq!(<$ty as Element<Scalar>>::type_descriptor(), td!($($tt)+));
+                let desc = <$ty as Element<Scalar>>::type_descriptor();
+                assert_eq!(desc, td!($($tt)+));
+                assert_eq!(
+                    dtype::<$ty>($py).unwrap(),
+                    dtype_from_type_descriptor($py, &desc).unwrap(),
+                );
                 check!($py, $str, $($tt)+);
             }};
             ($py:expr, $str:expr, $($tt:tt)+) => {{
                 let desc = td!($($tt)+);
-                let dtype = dt($py, &desc).unwrap();
-                assert_eq!(dtype.typeobj().name().unwrap(), $str);
+                let d = dtype_from_type_descriptor($py, &desc).unwrap();
+                assert_eq!(d.typeobj().name().unwrap(), $str);
             }};
         }
         Python::with_gil(|py| {
@@ -347,9 +353,9 @@ mod tests {
         macro_rules! check {
             ($py:expr, $ty:ident, $unit:ident) => {{
                 let desc = td!($ty[$unit]);
-                let dtype = dt($py, &desc).unwrap();
+                let d = dtype_from_type_descriptor($py, &desc).unwrap();
                 let type_str = stringify!($ty);
-                assert_eq!(dtype.typeobj().name().unwrap(), type_str);
+                assert_eq!(d.typeobj().name().unwrap(), type_str);
             }};
         }
         Python::with_gil(|py| {
@@ -385,23 +391,23 @@ mod tests {
 
     #[test]
     fn test_tuple() {
-        fn check_field(parent: &PyArrayDescr, name: &str, dtype: &PyArrayDescr, offset: usize) {
+        fn check_field(parent: &PyArrayDescr, name: &str, d: &PyArrayDescr, offset: usize) {
             let field = parent.get_field(name).unwrap();
-            assert_eq!(field, (dtype, offset));
+            assert_eq!(field, (d, offset));
         }
 
         macro_rules! check {
             ($py:expr, ($($i:tt : [$ty:ty] => [$($tt:tt)+]),+)) => {{
                 type T = ($($ty,)+);
-                let dtype = dt($py, &T::type_descriptor()).unwrap();
-                assert_eq!(dtype.names().unwrap(), &[$(format!("f{}", $i),)+]);
+                let d = dtype_from_type_descriptor($py, &T::type_descriptor()).unwrap();
+                assert_eq!(d.names().unwrap(), &[$(format!("f{}", $i),)+]);
                 $(
                 let field_name = format!("f{}", $i);
-                let field_dtype = dt($py, &<$ty>::type_descriptor()).unwrap();
+                let field_dtype = dtype_from_type_descriptor($py, &<$ty>::type_descriptor()).unwrap();
                 let field_offset = offset_of_tuple!(T, $i);
-                check_field(dtype, &field_name, field_dtype, field_offset);
+                check_field(d, &field_name, field_dtype, field_offset);
                 )+
-                assert!(dtype.is_aligned_struct());
+                assert!(d.is_aligned_struct());
             }};
             (@last $head:tt $($tail:tt)+) => { check!(@last $($tail)+) };
             (@last $tt:tt) => { $tt };
