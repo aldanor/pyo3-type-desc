@@ -443,4 +443,24 @@ mod tests {
             ));
         });
     }
+
+    #[rustversion::since(1.51)]
+    #[test]
+    fn test_array() {
+        macro_rules! check {
+            ($py:expr, $ty:ty, [$($tt:tt)+], $shape:expr, $base:ty) => {{
+                let desc = td!([$($tt)+]);
+                let d = dtype_from_type_descriptor($py, &desc).unwrap();
+                assert_eq!(d, dtype::<$ty>($py).unwrap());
+                assert!(d.has_subarray());
+                assert_eq!(d.base(), dtype::<$base>($py).unwrap());
+                assert_eq!(d.shape(), $shape);
+            }};
+        }
+        Python::with_gil(|py| {
+            check!(py, [u8; 3], [(3); u8], vec![3], u8);
+            check!(py, [u64; 0], [(0); u64], vec![0], u64);
+            check!(py, [[bool; 3]; 4], [(4, 3); bool], vec![4, 3], bool);
+        });
+    }
 }
