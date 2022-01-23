@@ -281,15 +281,12 @@ pub fn dtype<T: Element<Scalar>>(py: Python) -> PyResult<&PyArrayDescr> {
 
 #[cfg(test)]
 mod tests {
-    // TODO: these tests could be simplified if PyArrayDescr was extended to cover all of
-    // the np.dtype attributes in a convenient fashion (then these tests can be refactored)
-
     use std::mem;
 
     use memoffset::offset_of_tuple;
     use num_complex::{Complex32, Complex64};
     use numpy::PyArrayDescr;
-    use pyo3::{types::PyTuple, PyAny, PyObject, Python};
+    use pyo3::{PyObject, Python};
 
     use crate::{dtype_from_type_descriptor as dt, td, Scalar};
     use pyo3_type_desc::Element;
@@ -298,16 +295,9 @@ mod tests {
     fn test_object() {
         Python::with_gil(|py| {
             let dtype = dt(py, &PyObject::type_descriptor()).unwrap();
-            assert_eq!(
-                dtype.getattr("itemsize").unwrap().extract::<usize>().unwrap(),
-                mem::size_of::<PyObject>()
-            );
-            assert_eq!(
-                dtype.getattr("alignment").unwrap().extract::<usize>().unwrap(),
-                mem::align_of::<PyObject>()
-            );
-            assert_eq!(dtype.get_type().name().unwrap(), "object_");
-            assert_eq!(dtype.getattr("name").unwrap().to_string(), "object");
+            assert_eq!(dtype.itemsize(), mem::size_of::<PyObject>());
+            assert_eq!(dtype.alignment(), mem::align_of::<PyObject>());
+            assert_eq!(dtype.typeobj().name().unwrap(), "object_");
         })
     }
 
@@ -321,13 +311,7 @@ mod tests {
             ($py:expr, $str:expr, $($tt:tt)+) => {{
                 let desc = td!($($tt)+);
                 let dtype = dt($py, &desc).unwrap();
-                assert_eq!(dtype.get_type().name().unwrap(), $str);
-                let mut name = String::from($str);
-                if name.ends_with('_') {
-                    name.pop();
-                }
-                // TODO: add 'name()' to PyArrayDescr? (and also some other attrs of np.dtype)
-                assert_eq!(dtype.getattr("name").unwrap().to_string(), name);
+                assert_eq!(dtype.typeobj().name().unwrap(), $str);
             }};
         }
         Python::with_gil(|py| {
@@ -362,13 +346,10 @@ mod tests {
     fn test_datetime_scalars() {
         macro_rules! check {
             ($py:expr, $ty:ident, $unit:ident) => {{
-                // (py, datetime64, ns)
                 let desc = td!($ty[$unit]);
                 let dtype = dt($py, &desc).unwrap();
                 let type_str = stringify!($ty);
-                let name_str = format!("{}[{}]", type_str, stringify!($unit));
-                assert_eq!(dtype.get_type().name().unwrap(), type_str);
-                assert_eq!(dtype.getattr("name").unwrap().to_string(), name_str);
+                assert_eq!(dtype.typeobj().name().unwrap(), type_str);
             }};
         }
         Python::with_gil(|py| {
@@ -404,9 +385,8 @@ mod tests {
 
     #[test]
     fn test_tuple() {
-        fn check_field(fields: &PyAny, name: &str, dtype: &PyArrayDescr, offset: usize) {
-            let field: (&PyArrayDescr, usize) =
-                fields.get_item(&name).unwrap().downcast::<PyTuple>().unwrap().extract().unwrap();
+        fn check_field(parent: &PyArrayDescr, name: &str, dtype: &PyArrayDescr, offset: usize) {
+            let field = parent.get_field(name).unwrap();
             assert_eq!(field, (dtype, offset));
         }
 
@@ -414,18 +394,14 @@ mod tests {
             ($py:expr, ($($i:tt : [$ty:ty] => [$($tt:tt)+]),+)) => {{
                 type T = ($($ty,)+);
                 let dtype = dt($py, &T::type_descriptor()).unwrap();
-                // TODO: no mappingproxy in pyo3 yet (https://github.com/PyO3/pyo3/issues/2108)
-                let fields = dtype.getattr("fields").unwrap();
-                assert_eq!(fields.len().unwrap(), 1_usize + check!(@last $($i)+));
+                assert_eq!(dtype.names().unwrap(), &[$(format!("f{}", $i),)+]);
                 $(
                 let field_name = format!("f{}", $i);
                 let field_dtype = dt($py, &<$ty>::type_descriptor()).unwrap();
                 let field_offset = offset_of_tuple!(T, $i);
-                check_field(fields, &field_name, field_dtype, field_offset);
+                check_field(dtype, &field_name, field_dtype, field_offset);
                 )+
-                let names = dtype.getattr("names").unwrap().extract::<Vec<String>>().unwrap();
-                assert_eq!(names, &[$(format!("f{}", $i),)+]);
-                assert!(dtype.getattr("isalignedstruct").unwrap().extract::<bool>().unwrap());
+                assert!(dtype.is_aligned_struct());
             }};
             (@last $head:tt $($tail:tt)+) => { check!(@last $($tail)+) };
             (@last $tt:tt) => { $tt };
