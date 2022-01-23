@@ -459,7 +459,7 @@ mod tests {
         let s = "T{b:a:xxxi:b:3b:c:xi:d:}";
         assert_eq!(
             format!("{:?}", parse_type_descriptor(s).unwrap()),
-            "[16]{0:'a'=i8, 4:'b'=<i32, 8:'c'=(i8;[3]), 12:'d'=<i32}"
+            "{\"a\":0 => i8, \"b\":4 => <i32, \"c\":8 => [(3); i8], \"d\":12 => <i32 [16, 4]}"
         );
     }
 
