@@ -16,4 +16,4 @@ default = []
 complex = ["num-complex"]
 
 [workspace]
-members = [".", "numpy-type-desc"]
+members = [".", "numpy-type-desc", "numpy-derive"]
