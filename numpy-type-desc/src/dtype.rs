@@ -288,7 +288,7 @@ mod tests {
     use numpy::PyArrayDescr;
     use pyo3::{PyObject, Python};
 
-    use crate::{dtype, dtype_from_type_descriptor, td, Element};
+    use crate::{dtype, dtype_from_type_descriptor, td, units, Datetime64, Element, Timedelta64};
 
     #[test]
     fn test_object() {
@@ -354,44 +354,45 @@ mod tests {
     #[test]
     fn test_datetime_scalars() {
         macro_rules! check {
-            ($py:expr, $ty:ident, $unit:ident) => {{
-                let desc = td!($ty[$unit]);
+            ($py:expr, $np_ty:ident, $unit:ident, $ty:ty) => {{
+                let desc = td!($np_ty[$unit]);
                 let d = dtype_from_type_descriptor($py, &desc).unwrap();
-                let type_str = stringify!($ty);
+                let type_str = stringify!($np_ty);
                 assert_eq!(d.typeobj().name().unwrap(), type_str);
                 assert!(!d.has_object());
                 assert_eq!(d.itemsize(), 8);
                 assert_eq!(d.alignment(), 8);
+                assert_eq!(dtype::<$ty>($py).unwrap(), d);
             }};
         }
         Python::with_gil(|py| {
-            check!(py, datetime64, Y);
-            check!(py, datetime64, M);
-            check!(py, datetime64, W);
-            check!(py, datetime64, D);
-            check!(py, datetime64, h);
-            check!(py, datetime64, m);
-            check!(py, datetime64, s);
-            check!(py, datetime64, ms);
-            check!(py, datetime64, us);
-            check!(py, datetime64, ns);
-            check!(py, datetime64, ps);
-            check!(py, datetime64, fs);
-            check!(py, datetime64, as);
+            check!(py, datetime64, Y, Datetime64<units::Year>);
+            check!(py, datetime64, M, Datetime64<units::Month>);
+            check!(py, datetime64, W, Datetime64<units::Week>);
+            check!(py, datetime64, D, Datetime64<units::Day>);
+            check!(py, datetime64, h, Datetime64<units::Hour>);
+            check!(py, datetime64, m, Datetime64<units::Minute>);
+            check!(py, datetime64, s, Datetime64<units::Second>);
+            check!(py, datetime64, ms, Datetime64<units::Millisecond>);
+            check!(py, datetime64, us, Datetime64<units::Microsecond>);
+            check!(py, datetime64, ns, Datetime64<units::Nanosecond>);
+            check!(py, datetime64, ps, Datetime64<units::Picosecond>);
+            check!(py, datetime64, fs, Datetime64<units::Femtosecond>);
+            check!(py, datetime64, as, Datetime64<units::Attosecond>);
 
-            check!(py, timedelta64, Y);
-            check!(py, timedelta64, M);
-            check!(py, timedelta64, W);
-            check!(py, timedelta64, D);
-            check!(py, timedelta64, h);
-            check!(py, timedelta64, m);
-            check!(py, timedelta64, s);
-            check!(py, timedelta64, ms);
-            check!(py, timedelta64, us);
-            check!(py, timedelta64, ns);
-            check!(py, timedelta64, ps);
-            check!(py, timedelta64, fs);
-            check!(py, timedelta64, as);
+            check!(py, timedelta64, Y, Timedelta64<units::Year>);
+            check!(py, timedelta64, M, Timedelta64<units::Month>);
+            check!(py, timedelta64, W, Timedelta64<units::Week>);
+            check!(py, timedelta64, D, Timedelta64<units::Day>);
+            check!(py, timedelta64, h, Timedelta64<units::Hour>);
+            check!(py, timedelta64, m, Timedelta64<units::Minute>);
+            check!(py, timedelta64, s, Timedelta64<units::Second>);
+            check!(py, timedelta64, ms, Timedelta64<units::Millisecond>);
+            check!(py, timedelta64, us, Timedelta64<units::Microsecond>);
+            check!(py, timedelta64, ns, Timedelta64<units::Nanosecond>);
+            check!(py, timedelta64, ps, Timedelta64<units::Picosecond>);
+            check!(py, timedelta64, fs, Timedelta64<units::Femtosecond>);
+            check!(py, timedelta64, as, Timedelta64<units::Attosecond>);
         });
     }
 
