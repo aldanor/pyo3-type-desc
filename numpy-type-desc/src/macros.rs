@@ -6,7 +6,7 @@ macro_rules! td {
     };
 }
 
-#[macro_export]
+#[macro_export(local_inner_macros)]
 #[doc(hidden)]
 macro_rules! td_impl {
     // scalar type helpers
@@ -230,7 +230,7 @@ macro_rules! td_impl {
     // record - build the descriptor
 
     (@rec [$(($k:expr, $o:expr, $d:expr))*] [$s:expr, $a:expr]) => {{
-        let fields: Vec<pyo3_type_desc::FieldDescriptor<_>> = vec![$(
+        let fields: Vec<pyo3_type_desc::FieldDescriptor<_>> = ::std::vec![$(
             pyo3_type_desc::FieldDescriptor { desc: $d, name: ($k).map(|n| n.into()), offset: $o }
         ),*];
         <td_impl!(@td)>::Record(pyo3_type_desc::RecordDescriptor {
@@ -241,7 +241,7 @@ macro_rules! td_impl {
     // subarray - [(x, y); desc] syntax, build the descriptor
 
     ([($($d:expr),*); $($tt:tt)+]) => {{
-        let shape: Vec<usize> = vec![$($d),*];
+        let shape: Vec<usize> = ::std::vec![$($d),*];
         let desc = Box::new(td_impl!($($tt)+));
         <td_impl!(@td)>::Array(pyo3_type_desc::ArrayDescriptor {
             desc: desc.into(),
