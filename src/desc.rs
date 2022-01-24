@@ -182,6 +182,12 @@ pub enum TypeDescriptor<T: ScalarDescriptor> {
     Record(RecordDescriptor<T>),
 }
 
+impl<T: ScalarDescriptor> From<T> for TypeDescriptor<T> {
+    fn from(scalar: T) -> Self {
+        Self::Scalar(scalar)
+    }
+}
+
 impl<T: ScalarDescriptor> TypeDescriptor<T> {
     pub fn object() -> Self {
         Self::Object
