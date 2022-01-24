@@ -11,8 +11,14 @@ numpy = { git = "https://github.com/PyO3/rust-numpy.git" }
 pyo3-type-desc = { path = "..", features = ["complex"] }
 num-complex = "0.4"
 num-traits = "0.2"
+numpy-derive = { path = "../numpy-derive", optional = true }
+memoffset = { version = "0.6", optional = true }
 
 [dev-dependencies]
 pyo3 = { version = "0.15.1", features = ["auto-initialize"] }
 memoffset = "0.6"
 rustversion = "1.0"
+
+[features]
+default = []
+derive = ["numpy-derive", "memoffset"]
