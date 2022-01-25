@@ -174,13 +174,18 @@ unsafe fn create_dtype_array(
     // reference: _convert_from_tuple() in descriptor.c
     let ArrayDescriptor { desc, shape } = arr;
 
+    let base = create_dtype_any(py, desc)?;
+
+    // same as in base numpy, if the shape is empty for whatever reason, return the base type
+    if shape.is_empty() {
+        return Ok(base);
+    }
+
     let nbytes = checked_elsize(arr.itemsize(), arr.size(), || {
         PyValueError::new_err(
             "invalid shape in fixed-type tuple: dtype size in bytes must fit into a C int.",
         )
     })?;
-
-    let base = create_dtype_any(py, desc)?;
 
     let dtype = PY_ARRAY_API.PyArray_DescrFromType(NPY_TYPES::NPY_VOID as _);
     if dtype.is_null() {
