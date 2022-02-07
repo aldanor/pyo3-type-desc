@@ -10,8 +10,8 @@ use pyo3::{
 };
 
 use numpy::npyffi::{
-    PyArray_DatetimeDTypeMetaData, PyArray_DatetimeMetaData, PyArray_Descr, PyArray_malloc,
-    PyArrray_ArrayDescr, NPY_ALIGNED_STRUCT, NPY_BYTEORDER_CHAR, NPY_FROM_FIELDS, NPY_NEEDS_PYAPI,
+    PyArray_ArrayDescr, PyArray_DatetimeDTypeMetaData, PyArray_DatetimeMetaData, PyArray_Descr,
+    PyArray_malloc, NPY_ALIGNED_STRUCT, NPY_BYTEORDER_CHAR, NPY_FROM_FIELDS, NPY_NEEDS_PYAPI,
     NPY_TYPES, PY_ARRAY_API,
 };
 use numpy::PyArrayDescr;
@@ -25,9 +25,9 @@ use crate::datetime::DatetimeUnit;
 use crate::element::{ArrayElement, Scalar};
 
 #[inline]
-unsafe fn pyarray_descr_replace(descr: &mut *mut PyArray_Descr) {
+unsafe fn pyarray_descr_replace(py: Python, descr: &mut *mut PyArray_Descr) {
     // an equivalent of PyArray_DESCR_REPLACE macro
-    let new = PY_ARRAY_API.PyArray_DescrNew(*descr);
+    let new = PY_ARRAY_API.PyArray_DescrNew(py, *descr);
     Py_XDECREF(*descr as _);
     *descr = new;
 }
@@ -36,7 +36,7 @@ unsafe fn pyarray_descr_replace(descr: &mut *mut PyArray_Descr) {
 unsafe fn pyarray_descr_new_from_type(
     py: Python, npy_type: NPY_TYPES,
 ) -> PyResult<*mut PyArray_Descr> {
-    let dtype = PY_ARRAY_API.PyArray_DescrFromType(npy_type as _);
+    let dtype = PY_ARRAY_API.PyArray_DescrFromType(py, npy_type as _);
     if dtype.is_null() {
         Err(PyErr::fetch(py))
     } else {
@@ -49,7 +49,7 @@ unsafe fn pyarray_descr_clone_from_type(
     py: Python, npy_type: NPY_TYPES,
 ) -> PyResult<*mut PyArray_Descr> {
     let mut dtype = pyarray_descr_new_from_type(py, npy_type)?;
-    pyarray_descr_replace(&mut dtype);
+    pyarray_descr_replace(py, &mut dtype);
     if dtype.is_null() {
         Err(PyErr::fetch(py))
     } else {
@@ -82,7 +82,7 @@ fn checked_elsize(
 }
 
 unsafe fn create_dtype_object(py: Python) -> PyResult<*mut PyArray_Descr> {
-    let dtype = PY_ARRAY_API.PyArray_DescrFromType(NPY_TYPES::NPY_OBJECT as _);
+    let dtype = PY_ARRAY_API.PyArray_DescrFromType(py, NPY_TYPES::NPY_OBJECT as _);
     if dtype.is_null() {
         return Err(PyErr::fetch(py));
     }
@@ -175,7 +175,7 @@ unsafe fn create_dtype_scalar(py: Python, scalar: &Scalar) -> PyResult<*mut PyAr
             // we bypass PyArray_DescrNewByteorder since it has lots of extra logic
             // that we don't need (e.g. recursively setting endianness for subarrays
             // and record type fields)
-            pyarray_descr_replace(&mut dtype);
+            pyarray_descr_replace(py, &mut dtype);
             if dtype.is_null() {
                 return Err(PyErr::fetch(py));
             }
@@ -221,8 +221,7 @@ unsafe fn create_dtype_array(
     (*dtype).fields = ptr::null_mut() as _;
     (*dtype).names = ptr::null_mut() as _;
 
-    let subarray =
-        PyArray_malloc(mem::size_of::<PyArrray_ArrayDescr>()) as *mut PyArrray_ArrayDescr;
+    let subarray = PyArray_malloc(mem::size_of::<PyArray_ArrayDescr>()) as *mut PyArray_ArrayDescr;
     if subarray.is_null() {
         Py_DECREF(dtype as _);
         return Err(PyMemoryError::new_err(""));
