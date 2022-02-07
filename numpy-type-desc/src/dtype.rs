@@ -6,13 +6,13 @@ use pyo3::{
     exceptions::{PyMemoryError, PyValueError},
     ffi::{Py_DECREF, Py_XDECREF},
     types::{PyDict, PyTuple},
-    AsPyPointer, IntoPy, IntoPyPointer, Py, PyErr, PyResult, Python,
+    AsPyPointer, IntoPyPointer, PyErr, PyResult, Python, ToPyObject,
 };
 
 use numpy::npyffi::{
     PyArray_DatetimeDTypeMetaData, PyArray_DatetimeMetaData, PyArray_Descr, PyArray_malloc,
-    NPY_ALIGNED_STRUCT, NPY_BYTEORDER_CHAR, NPY_FROM_FIELDS, NPY_NEEDS_PYAPI, NPY_TYPES,
-    PY_ARRAY_API,
+    PyArrray_ArrayDescr, NPY_ALIGNED_STRUCT, NPY_BYTEORDER_CHAR, NPY_FROM_FIELDS, NPY_NEEDS_PYAPI,
+    NPY_TYPES, PY_ARRAY_API,
 };
 use numpy::PyArrayDescr;
 
@@ -30,6 +30,31 @@ unsafe fn pyarray_descr_replace(descr: &mut *mut PyArray_Descr) {
     let new = PY_ARRAY_API.PyArray_DescrNew(*descr);
     Py_XDECREF(*descr as _);
     *descr = new;
+}
+
+#[inline]
+unsafe fn pyarray_descr_new_from_type(
+    py: Python, npy_type: NPY_TYPES,
+) -> PyResult<*mut PyArray_Descr> {
+    let dtype = PY_ARRAY_API.PyArray_DescrFromType(npy_type as _);
+    if dtype.is_null() {
+        Err(PyErr::fetch(py))
+    } else {
+        Ok(dtype)
+    }
+}
+
+#[inline]
+unsafe fn pyarray_descr_clone_from_type(
+    py: Python, npy_type: NPY_TYPES,
+) -> PyResult<*mut PyArray_Descr> {
+    let mut dtype = pyarray_descr_new_from_type(py, npy_type)?;
+    pyarray_descr_replace(&mut dtype);
+    if dtype.is_null() {
+        Err(PyErr::fetch(py))
+    } else {
+        Ok(dtype)
+    }
 }
 
 fn npy_int_type_lookup<T, T0, T1, T2>(npy_types: [NPY_TYPES; 3]) -> NPY_TYPES {
@@ -65,7 +90,7 @@ unsafe fn create_dtype_object(py: Python) -> PyResult<*mut PyArray_Descr> {
 }
 
 unsafe fn create_dtype_scalar(py: Python, scalar: &Scalar) -> PyResult<*mut PyArray_Descr> {
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum Quirks {
         None,
         Flexible(usize, usize),
@@ -132,10 +157,11 @@ unsafe fn create_dtype_scalar(py: Python, scalar: &Scalar) -> PyResult<*mut PyAr
         Scalar::Timedelta(unit) => (N::NPY_TIMEDELTA, Q::DatetimeUnit(unit)),
     };
 
-    let mut dtype = PY_ARRAY_API.PyArray_DescrFromType(npy_type as _);
-    if dtype.is_null() {
-        return Err(PyErr::fetch(py));
+    if quirks == Quirks::None {
+        return pyarray_descr_new_from_type(py, npy_type);
     }
+
+    let mut dtype = pyarray_descr_clone_from_type(py, npy_type)?;
 
     match quirks {
         Quirks::Flexible(size, width) => {
@@ -158,7 +184,6 @@ unsafe fn create_dtype_scalar(py: Python, scalar: &Scalar) -> PyResult<*mut PyAr
         Quirks::DatetimeUnit(unit) => {
             // reference: create_datetime_dtype() in descriptor.c
             let meta = PyArray_DatetimeMetaData { base: unit.into_npy_datetimeunit(), num: 1 };
-            // pyarray_descr_replace is not required here, we can just mutate the dtype
             let dtype_meta = (*dtype).c_metadata as *mut PyArray_DatetimeDTypeMetaData;
             (*dtype_meta).meta = meta;
         }
@@ -181,32 +206,30 @@ unsafe fn create_dtype_array(
         return Ok(base);
     }
 
-    let nbytes = checked_elsize(arr.itemsize(), arr.size(), || {
+    let nbytes = checked_elsize(arr.element_size(), arr.size(), || {
         PyValueError::new_err(
             "invalid shape in fixed-type tuple: dtype size in bytes must fit into a C int.",
         )
     })?;
 
-    let dtype = PY_ARRAY_API.PyArray_DescrFromType(NPY_TYPES::NPY_VOID as _);
-    if dtype.is_null() {
-        return Err(PyErr::fetch(py));
-    }
-
-    (*dtype).subarray = PyArray_malloc(mem::size_of::<PyArray_Descr>()) as _;
-    if (*dtype).subarray.is_null() {
-        Py_DECREF(dtype as _);
-        return Err(PyMemoryError::new_err(""));
-    }
-
+    let mut dtype = pyarray_descr_clone_from_type(py, NPY_TYPES::NPY_VOID)?;
     (*dtype).elsize = nbytes as _;
     (*dtype).flags = (*base).flags;
     (*dtype).alignment = (*base).alignment;
-    (*(*dtype).subarray).base = base;
     Py_XDECREF((*dtype).fields);
     Py_XDECREF((*dtype).names);
     (*dtype).fields = ptr::null_mut() as _;
     (*dtype).names = ptr::null_mut() as _;
-    (*(*dtype).subarray).shape = PyTuple::new(py, shape.iter().copied()).into_ptr();
+
+    let subarray =
+        PyArray_malloc(mem::size_of::<PyArrray_ArrayDescr>()) as *mut PyArrray_ArrayDescr;
+    if subarray.is_null() {
+        Py_DECREF(dtype as _);
+        return Err(PyMemoryError::new_err(""));
+    }
+    (*subarray).base = base;
+    (*subarray).shape = PyTuple::new(py, shape.iter().copied()).into_ptr();
+    (*dtype).subarray = subarray;
 
     Ok(dtype)
 }
@@ -236,9 +259,9 @@ unsafe fn create_dtype_record(
 
     let fields_dict = PyDict::new(py);
     for (field, name) in fields.iter().zip(&names) {
-        let dtype: Py<PyArrayDescr> = dtype_from_type_descriptor(py, &field.desc)?.into_py(py);
+        let dtype = dtype_from_type_descriptor(py, &field.desc)?;
         flags |= (*(dtype.as_ptr() as *mut PyArray_Descr)).flags & NPY_FROM_FIELDS;
-        let field_item: Py<PyTuple> = (dtype, field.offset).into_py(py);
+        let field_item = (dtype, field.offset).to_object(py);
         if fields_dict.contains(&name).unwrap_or(false) {
             return Err(PyValueError::new_err(format!(
                 "name {:?} already used as a name or title",
@@ -248,16 +271,14 @@ unsafe fn create_dtype_record(
         fields_dict.set_item(name, field_item)?;
     }
 
-    let dtype = PY_ARRAY_API.PyArray_DescrFromType(NPY_TYPES::NPY_VOID as _);
-    if dtype.is_null() {
-        return Err(PyErr::fetch(py));
-    }
-
+    let mut dtype = pyarray_descr_clone_from_type(py, NPY_TYPES::NPY_VOID)?;
     (*dtype).fields = fields_dict.into_ptr();
     (*dtype).names = names_tuple.into_ptr();
     (*dtype).flags = flags;
-    // TODO: numpy assigns alignment only in 'aligned' mode, should we just always set it?
-    (*dtype).alignment = alignment.unwrap_or(1) as _;
+    if rec.is_aligned() {
+        // numpy assigns alignment only in 'aligned' mode
+        (*dtype).alignment = alignment.unwrap_or(1) as _;
+    }
     (*dtype).elsize = *itemsize as _;
 
     Ok(dtype)

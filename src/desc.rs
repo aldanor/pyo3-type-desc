@@ -144,6 +144,10 @@ impl<T: ScalarDescriptor> ArrayDescriptor<T> {
         self.shape.len()
     }
 
+    pub fn element_size(&self) -> usize {
+        self.desc.itemsize()
+    }
+
     pub fn itemsize(&self) -> usize {
         self.size() * self.desc.itemsize()
     }
