@@ -306,6 +306,7 @@ pub fn dtype<T: ArrayElement>(py: Python) -> PyResult<&PyArrayDescr> {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::Ordering;
     use std::mem;
 
     use memoffset::offset_of_tuple;
@@ -334,7 +335,7 @@ mod tests {
                 let desc = <$ty>::type_descriptor();
                 assert_eq!(desc, td!($($tt)+));
                 let d = dtype_from_type_descriptor($py, &desc).unwrap();
-                assert_eq!(d, dtype::<$ty>($py).unwrap());
+                assert_eq!(d.compare(dtype::<$ty>($py).unwrap()).unwrap(), Ordering::Equal);
                 assert_eq!(d.itemsize(), mem::size_of::<$ty>());
                 assert_eq!(d.alignment(), mem::align_of::<$ty>());
                 check!($py, $str, $($tt)+);
@@ -387,7 +388,7 @@ mod tests {
                 assert!(!d.has_object());
                 assert_eq!(d.itemsize(), 8);
                 assert_eq!(d.alignment(), 8);
-                assert_eq!(dtype::<$ty>($py).unwrap(), d);
+                assert_eq!(d.compare(dtype::<$ty>($py).unwrap()).unwrap(), Ordering::Equal);
             }};
         }
         Python::with_gil(|py| {
@@ -425,7 +426,8 @@ mod tests {
     fn test_tuple() {
         fn check_field(parent: &PyArrayDescr, name: &str, d: &PyArrayDescr, offset: usize) {
             let field = parent.get_field(name).unwrap();
-            assert_eq!(field, (d, offset));
+            assert_eq!(field.0.compare(d).unwrap(), Ordering::Equal);
+            assert_eq!(field.1, offset);
         }
 
         macro_rules! check {
@@ -486,9 +488,9 @@ mod tests {
             ($py:expr, $ty:ty, [$($tt:tt)+], $shape:expr, $base:ty) => {{
                 let desc = td!([$($tt)+]);
                 let d = dtype_from_type_descriptor($py, &desc).unwrap();
-                assert_eq!(d, dtype::<$ty>($py).unwrap());
+                assert_eq!(d.compare(dtype::<$ty>($py).unwrap()).unwrap(), Ordering::Equal);
                 assert!(d.has_subarray());
-                assert_eq!(d.base(), dtype::<$base>($py).unwrap());
+                assert_eq!(d.base().compare(dtype::<$base>($py).unwrap()).unwrap(), Ordering::Equal);
                 assert_eq!(d.shape(), $shape);
                 assert_eq!(d.ndim(), $shape.len());
             }};
