@@ -312,38 +312,39 @@ mod tests {
     use memoffset::offset_of_tuple;
     use num_complex::{Complex32, Complex64};
     use numpy::PyArrayDescr;
-    use pyo3::{PyObject, Python};
+    use pyo3::{PyObject, PyResult, Python};
 
     use crate::{dtype, dtype_from_type_descriptor, td, units, Datetime64, Element, Timedelta64};
 
     #[test]
-    fn test_object() {
+    fn test_object() -> PyResult<()> {
         Python::with_gil(|py| {
-            let d = dtype_from_type_descriptor(py, &PyObject::type_descriptor()).unwrap();
-            assert_eq!(d, dtype::<PyObject>(py).unwrap());
+            let d = dtype_from_type_descriptor(py, &PyObject::type_descriptor())?;
+            assert_eq!(d, dtype::<PyObject>(py)?);
             assert_eq!(d.itemsize(), mem::size_of::<PyObject>());
             assert_eq!(d.alignment(), mem::align_of::<PyObject>());
-            assert_eq!(d.typeobj().name().unwrap(), "object_");
+            assert_eq!(d.typeobj().name()?, "object_");
             assert!(d.has_object());
+            Ok(())
         })
     }
 
     #[test]
-    fn test_base_scalars() {
+    fn test_base_scalars() -> PyResult<()> {
         macro_rules! check {
             ($py:expr, $ty:ty, $str:expr, $($tt:tt)+) => {{
                 let desc = <$ty>::type_descriptor();
                 assert_eq!(desc, td!($($tt)+));
-                let d = dtype_from_type_descriptor($py, &desc).unwrap();
-                assert_eq!(d.compare(dtype::<$ty>($py).unwrap()).unwrap(), Ordering::Equal);
+                let d = dtype_from_type_descriptor($py, &desc)?;
+                assert_eq!(d.compare(dtype::<$ty>($py)?)?, Ordering::Equal);
                 assert_eq!(d.itemsize(), mem::size_of::<$ty>());
                 assert_eq!(d.alignment(), mem::align_of::<$ty>());
                 check!($py, $str, $($tt)+);
             }};
             ($py:expr, $str:expr, $($tt:tt)+) => {{
                 let desc = td!($($tt)+);
-                let d = dtype_from_type_descriptor($py, &desc).unwrap();
-                assert_eq!(d.typeobj().name().unwrap(), $str);
+                let d = dtype_from_type_descriptor($py, &desc)?;
+                assert_eq!(d.typeobj().name()?, $str);
                 assert_eq!(d.has_object(), $str == "object_");
                 assert!(!d.has_subarray());
                 assert!(d.names().is_none());
@@ -374,21 +375,22 @@ mod tests {
                 check!(py, usize, "uint64", =u64);
                 check!(py, isize, "int64", =i64);
             }
-        });
+            Ok(())
+        })
     }
 
     #[test]
-    fn test_datetime_scalars() {
+    fn test_datetime_scalars() -> PyResult<()> {
         macro_rules! check {
             ($py:expr, $np_ty:ident, $unit:ident, $ty:ty) => {{
                 let desc = td!($np_ty[$unit]);
-                let d = dtype_from_type_descriptor($py, &desc).unwrap();
+                let d = dtype_from_type_descriptor($py, &desc)?;
                 let type_str = stringify!($np_ty);
-                assert_eq!(d.typeobj().name().unwrap(), type_str);
+                assert_eq!(d.typeobj().name()?, type_str);
                 assert!(!d.has_object());
                 assert_eq!(d.itemsize(), 8);
                 assert_eq!(d.alignment(), 8);
-                assert_eq!(d.compare(dtype::<$ty>($py).unwrap()).unwrap(), Ordering::Equal);
+                assert_eq!(d.compare(dtype::<$ty>($py)?)?, Ordering::Equal);
             }};
         }
         Python::with_gil(|py| {
@@ -419,27 +421,32 @@ mod tests {
             check!(py, timedelta64, ps, Timedelta64<units::Picosecond>);
             check!(py, timedelta64, fs, Timedelta64<units::Femtosecond>);
             check!(py, timedelta64, as, Timedelta64<units::Attosecond>);
-        });
+
+            Ok(())
+        })
     }
 
     #[test]
-    fn test_tuple() {
-        fn check_field(parent: &PyArrayDescr, name: &str, d: &PyArrayDescr, offset: usize) {
-            let field = parent.get_field(name).unwrap();
-            assert_eq!(field.0.compare(d).unwrap(), Ordering::Equal);
+    fn test_tuple() -> PyResult<()> {
+        fn check_field(
+            parent: &PyArrayDescr, name: &str, d: &PyArrayDescr, offset: usize,
+        ) -> PyResult<()> {
+            let field = parent.get_field(name)?;
+            assert_eq!(field.0.compare(d)?, Ordering::Equal);
             assert_eq!(field.1, offset);
+            Ok(())
         }
 
         macro_rules! check {
             ($py:expr, ($($i:tt : [$ty:ty] => [$($tt:tt)+]),+)) => {{
                 type T = ($($ty,)+);
-                let d = dtype_from_type_descriptor($py, &T::type_descriptor()).unwrap();
+                let d = dtype_from_type_descriptor($py, &T::type_descriptor())?;
                 assert_eq!(d.names().unwrap(), &[$(format!("f{}", $i),)+]);
                 $(
                 let field_name = format!("f{}", $i);
-                let field_dtype = dtype_from_type_descriptor($py, &<$ty>::type_descriptor()).unwrap();
+                let field_dtype = dtype_from_type_descriptor($py, &<$ty>::type_descriptor())?;
                 let field_offset = offset_of_tuple!(T, $i);
-                check_field(d, &field_name, field_dtype, field_offset);
+                check_field(d, &field_name, field_dtype, field_offset)?;
                 )+
                 assert!(d.is_aligned_struct());
             }};
@@ -459,8 +466,8 @@ mod tests {
                 Y::type_descriptor(),
                 td!({y0 => i8, y1 => {x0 => ?, x1 => u64 [x_s, x_a]}, y2 => object [y_s, y_a]})
             );
-            assert!(!dtype::<X>(py).unwrap().has_object());
-            assert!(dtype::<Y>(py).unwrap().has_object());
+            assert!(!dtype::<X>(py)?.has_object());
+            assert!(dtype::<Y>(py)?.has_object());
 
             check!(py, (0: [u64] => [u64]));
             check!(py, (0: [i32] => [=i32], 1: [bool] => [?]));
@@ -478,19 +485,21 @@ mod tests {
                 10: [i64] => [=i64],
                 11: [u64] => [u64]
             ));
-        });
+
+            Ok(())
+        })
     }
 
     #[rustversion::since(1.51)]
     #[test]
-    fn test_array() {
+    fn test_array() -> PyResult<()> {
         macro_rules! check {
             ($py:expr, $ty:ty, [$($tt:tt)+], $shape:expr, $base:ty) => {{
                 let desc = td!([$($tt)+]);
-                let d = dtype_from_type_descriptor($py, &desc).unwrap();
-                assert_eq!(d.compare(dtype::<$ty>($py).unwrap()).unwrap(), Ordering::Equal);
+                let d = dtype_from_type_descriptor($py, &desc)?;
+                assert_eq!(d.compare(dtype::<$ty>($py)?)?, Ordering::Equal);
                 assert!(d.has_subarray());
-                assert_eq!(d.base().compare(dtype::<$base>($py).unwrap()).unwrap(), Ordering::Equal);
+                assert_eq!(d.base().compare(dtype::<$base>($py)?)?, Ordering::Equal);
                 assert_eq!(d.shape(), $shape);
                 assert_eq!(d.ndim(), $shape.len());
             }};
@@ -499,6 +508,7 @@ mod tests {
             check!(py, [u8; 3], [(3); u8], vec![3], u8);
             check!(py, [u64; 0], [(0); u64], vec![0], u64);
             check!(py, [[bool; 3]; 4], [(4, 3); bool], vec![4, 3], bool);
-        });
+            Ok(())
+        })
     }
 }
